@@ -30,6 +30,7 @@ global.SETTINGS = {
     schedulesLate: []    // Late/Alpha Only
 };
 
+const session = require('express-session');
 const attendanceService = require('./services/attendance');
 const wahaService = require('./services/waha');
 const schedulerService = require('./services/scheduler');
@@ -41,22 +42,66 @@ const storageService = require('./services/storage');
     global.SETTINGS = await storageService.loadSettings();
     schedulerService.init(global.SETTINGS);
 
-    // Routes - Frontend
-    app.get('/', (req, res) => {
+    // Session Middleware
+    app.use(session({
+        secret: 'gas-secret-key-12345',
+        resave: false,
+        saveUninitialized: true,
+        cookie: { maxAge: 24 * 60 * 60 * 1000 } // 1 day
+    }));
+
+    // Authentication Middleware
+    const requireAuth = (req, res, next) => {
+        if (req.session.authenticated) {
+            next();
+        } else {
+            res.redirect('/login');
+        }
+    };
+
+    // Public Routes
+    app.get('/login', (req, res) => {
+        // If already logged in, redirect to dashboard
+        if (req.session.authenticated) return res.redirect('/');
+        res.render('login', { error: null });
+    });
+
+    app.post('/login', (req, res) => {
+        const { username, password } = req.body;
+        // Hardcoded credentials as requested
+        const validUser = process.env.APP_USER || 'gasproject';
+        const validPass = process.env.APP_PASS || 'GAS1180';
+
+        if (username === validUser && password === validPass) {
+            req.session.authenticated = true;
+            req.session.user = username;
+            res.redirect('/');
+        } else {
+            res.render('login', { error: 'Username atau Password salah!' });
+        }
+    });
+
+    app.get('/logout', (req, res) => {
+        req.session.destroy();
+        res.redirect('/login');
+    });
+
+    // Protected Routes - Frontend
+    app.get('/', requireAuth, (req, res) => {
         res.render('dashboard', {
             page: 'dashboard',
             data: global.ATTENDANCE_CACHE
         });
     });
 
-    app.get('/details', (req, res) => {
+    app.get('/details', requireAuth, (req, res) => {
         res.render('details', {
             page: 'details',
             data: global.ATTENDANCE_CACHE
         });
     });
 
-    app.get('/input-broadcast', (req, res) => {
+    app.get('/input-broadcast', requireAuth, (req, res) => {
         res.render('broadcast', {
             page: 'broadcast',
             settings: global.SETTINGS
