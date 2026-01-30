@@ -1,0 +1,4 @@
+--- START ---
+[FAIL] Standard (With /): Status 401 - Code: authorization.exception - Desc: You are not authorized to access this resource
+[FAIL] No Leading Slash: Status 401 - Code: OpenApiAuth.api.key.invalid - Desc: OpenApiAuth.api.key.invalid
+--- END ---

@@ -1,0 +1,3 @@
+--- START ---
+[FAIL] With Query Params: Status 401 - Code: OpenApiAuth.api.key.invalid - Desc: OpenApiAuth.api.key.invalid
+--- END ---
