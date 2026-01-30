@@ -68,7 +68,7 @@ const storageService = require('./services/storage');
         try {
             const data = await attendanceService.fetchData();
             global.ATTENDANCE_CACHE = {
-                timestamp: new Date().toLocaleString(),
+                timestamp: new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }),
                 results: data
             };
             res.json({ success: true, message: 'Data refreshed successfully', data: global.ATTENDANCE_CACHE });

@@ -40,6 +40,7 @@ ON CONFLICT (id) DO NOTHING;
 | `API_PATH` | `/open-api/dr-absensi-harian/search` | Path API Gaji.id (sama seperti .env) |
 | `SUPABASE_URL` | `https://xyz.supabase.co` | **[NEW]** Dari Part 1 |
 | `SUPABASE_KEY` | `eyJh...` | **[NEW]** Dari Part 1 (service_role) |
+| `TZ` | `Asia/Jakarta` | Set Timezone ke WIB |
 | `PORT` | `3000` | (Opsional, Railway biasanya auto-detect) |
 
 3.  **Deploy**: Railway will automatically build and deploy `node server.js` based on your `package.json`.

@@ -9,7 +9,7 @@ class SchedulerService {
 
     // Initialize tasks based on settings
     init(settings) {
-        console.log(`[Scheduler] Initializing. Server Time: ${new Date().toString()}`);
+        console.log(`[Scheduler] Initializing. Server Time: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`);
         console.log(`[Scheduler] AutoBroadcast Enabled: ${settings.autoBroadcast}`);
 
         this.stopAll();
@@ -74,7 +74,7 @@ class SchedulerService {
     }
 
     generateReport(data, type = 'general') {
-        const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jakarta' });
 
         let filteredData = data;
         let titleSuffix = "";
