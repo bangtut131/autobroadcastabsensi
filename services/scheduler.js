@@ -57,11 +57,13 @@ class SchedulerService {
 
             // 3. Send via WAHA
             if (settings.targetNumber) {
-                // Don't send empty reports for specific filters if no data matches
+                // Don't skip empty reports (User Request: Always send to verify scheduler works)
+                /* 
                 if (type !== 'general' && report.includes("_Tidak ada data")) {
-                    console.log(`[Scheduler] No data for ${type} report, skipping.`);
-                    return;
+                     console.log(`[Scheduler] No data for ${type} report, skipping.`);
+                     return;
                 }
+                */
 
                 await wahaService.sendText(settings.wahaUrl, settings.sessionId, settings.apiKey, settings.targetNumber, report);
                 console.log(`[Scheduler] ${type} broadcast sent successfully`);
