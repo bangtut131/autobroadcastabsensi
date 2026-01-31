@@ -97,7 +97,11 @@ class AttendanceService {
                 // Docs: menitterlambatdiluarizin, menitterlambattermasukizin
                 menitTerlambat: (parseFloat(item.menitterlambatdiluarizin) || 0) + (parseFloat(item.menitterlambattermasukizin) || 0),
                 status: item.jenisabsensirealisasi || item.status || 'Hadir',
-                keterangan: leaveDesc
+                keterangan: leaveDesc,
+                // Additional fields for Karyawan menu
+                posisi: item.nmjabatan || item.jabatan || item.posisi || '-',
+                departemen: item.nmdivisi || item.divisi || item.nmdepartemen || item.departemen || '-',
+                joinDate: item.tglmasuk || item.joindate || '-'
             };
         });
     }

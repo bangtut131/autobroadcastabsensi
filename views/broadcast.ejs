@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Broadcast - Absensi Broadcast</title>
+    <title>Broadcast WA - Absensi Broadcast</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -55,6 +55,8 @@
     <div class="sidebar">
         <h4 class="text-center mb-4">Absensi App</h4>
         <a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>"><i class="fas fa-home me-2"></i> Dashboard</a>
+        <a href="/karyawan" class="<%= page === 'karyawan' ? 'active' : '' %>"><i class="fas fa-users me-2"></i>
+            Karyawan</a>
         <a href="/details" class="<%= page === 'details' ? 'active' : '' %>"><i class="fas fa-list me-2"></i> Data
             Detail</a>
         <a href="/input-broadcast" class="<%= page === 'broadcast' ? 'active' : '' %>"><i
@@ -62,84 +64,121 @@
     </div>
 
     <div class="content">
-        <h2 class="mb-4">Pengaturan Broadcast</h2>
+        <h2 class="mb-4">Broadcast WhatsApp</h2>
 
         <div class="row">
-            <!-- Settings Form -->
-            <div class="col-md-7">
+
+            <!-- Manual Broadcast -->
+            <div class="col-md-6">
                 <div class="card card-custom p-4 mb-4">
-                    <h5 class="mb-3">Konfigurasi</h5>
-                    <form id="settingsForm">
+                    <h5 class="mb-3">Manual Broadcast</h5>
+                    <form id="broadcastForm">
                         <div class="mb-3">
                             <label class="form-label">WAHA API URL</label>
                             <input type="text" class="form-control" name="wahaUrl" value="<%= settings.wahaUrl %>"
-                                placeholder="http://localhost:3000">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">WAHA Session ID</label>
-                            <input type="text" class="form-control" name="sessionId"
-                                value="<%= settings.sessionId || 'default' %>" placeholder="default">
-                            <div class="form-text">Nama sesi yang digunakan di WAHA (default: 'default').</div>
+                                required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">API Key (Optional)</label>
-                            <input type="password" class="form-control" name="apiKey"
-                                value="<%= settings.apiKey || '' %>" placeholder="Isi jika WAHA diproteksi password">
-                            <div class="form-text">Biarkan kosong jika tidak menggunakan keamanan API Key.</div>
+                            <input type="text" class="form-control" name="apiKey" value="<%= settings.apiKey %>">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Target Nomor WA / Group ID</label>
-                            <input type="text" class="form-control" name="targetNumber"
-                                value="<%= settings.targetNumber %>" placeholder="628123456789 atau 12036...g.us">
-                            <div class="form-text">Gunakan ID Group jika ingin mengirim ke grup.</div>
+                            <label class="form-label">Session ID</label>
+                            <input type="text" class="form-control" name="sessionId" value="<%= settings.sessionId %>"
+                                required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Template Pesan</label>
-                            <textarea class="form-control" name="messageTemplate" rows="4"
-                                placeholder="Gunakan {{date}} untuk tanggal dan {{data}} untuk list absensi"><%= settings.messageTemplate %></textarea>
-                            <div class="form-text"><strong>Shortcodes:</strong> <code>{{date}}</code> = Tanggal hari
-                                ini, <code>{{data}}</code> = List data karyawan.</div>
-                        </div>
-                        <div class="mb-3 form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="autoBroadcast" id="autoBroadcast"
-                                <%=settings.autoBroadcast ? 'checked' : '' %>>
-                            <label class="form-check-label" for="autoBroadcast">Aktifkan Auto Broadcast</label>
+                            <label class="form-label">Nomor Tujuan (Ex: 62812...)</label>
+                            <input type="text" class="form-control" name="target" value="<%= settings.targetNumber %>"
+                                required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Jadwal Laporan Umum (Semua Data)</label>
-                            <input type="text" class="form-control" name="schedules"
-                                value="<%= (settings.schedules || []).join(', ') %>" placeholder="08:00, 17:00">
-                            <div class="form-text">Laporan lengkap kehadiran karyawan.</div>
+                            <label class="form-label">Pesan</label>
+                            <textarea class="form-control" name="message" rows="3" required>Test Broadcast</textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Jadwal Laporan Cuti/Izin</label>
-                            <input type="text" class="form-control" name="schedulesLeave"
-                                value="<%= (settings.schedulesLeave || []).join(', ') %>" placeholder="08:30">
-                            <div class="form-text">Hanya menampilkan karyawan yang Cuti atau Izin.</div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Jadwal Laporan Terlambat/Alpha</label>
-                            <input type="text" class="form-control" name="schedulesLate"
-                                value="<%= (settings.schedulesLate || []).join(', ') %>" placeholder="10:00">
-                            <div class="form-text">Hanya menampilkan karyawan yang Terlambat atau Alpha/Bolos.</div>
-                        </div>
-                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i> Simpan
-                            Pengaturan</button>
+                        <button type="submit" class="btn btn-success w-100" id="sendBtn"><i
+                                class="fab fa-whatsapp me-2"></i> Kirim Pesan</button>
                     </form>
                 </div>
             </div>
 
-            <!-- Manual Broadcast -->
-            <div class="col-md-5">
-                <div class="card card-custom p-4 bg-white">
-                    <h5 class="mb-3">Test Manual</h5>
-                    <p>Kirim pesan test ke target di atas.</p>
-                    <div class="mb-3">
-                        <textarea class="form-control" id="manualMessage" rows="3"
-                            placeholder="Isi pesan manual (opsional)..."></textarea>
-                    </div>
-                    <button id="broadcastBtn" class="btn btn-success w-100"><i class="fas fa-paper-plane me-2"></i>
-                        Kirim Broadcast Sekarang</button>
+            <!-- Settings -->
+            <div class="col-md-6">
+                <div class="card card-custom p-4 mb-4">
+                    <h5 class="mb-3">Pengaturan Otomatis</h5>
+                    <form id="settingsForm">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="autoBroadcast" name="autoBroadcast"
+                                <%=settings.autoBroadcast ? 'checked' : '' %>>
+                            <label class="form-check-label" for="autoBroadcast">Aktifkan Auto Broadcast</label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Jadwal General (Semua) - HH:mm</label>
+                            <input type="text" class="form-control" name="schedules"
+                                value="<%= settings.schedules.join(', ') %>" placeholder="Ex: 08:00, 17:00">
+                            <small class="text-muted">Pisahkan dengan koma</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Jadwal Khusus Izin/Cuti</label>
+                            <input type="text" class="form-control" name="schedulesLeave"
+                                value="<%= settings.schedulesLeave ? settings.schedulesLeave.join(', ') : '' %>"
+                                placeholder="Ex: 09:00">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Jadwal Khusus Terlambat/Alpha</label>
+                            <input type="text" class="form-control" name="schedulesLate"
+                                value="<%= settings.schedulesLate ? settings.schedulesLate.join(', ') : '' %>"
+                                placeholder="Ex: 10:00">
+                        </div>
+
+                        <hr>
+                        <h6 class="mb-3">Pengaturan Hari Libur (Tidak ada Broadcast)</h6>
+
+                        <div class="mb-3">
+                            <label class="form-label">Hari Libur Mingguan</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="holidayDays" value="0"
+                                        id="holidaySun" <%=settings.holidayDays && settings.holidayDays.includes('0')
+                                        ? 'checked' : '' %>>
+                                    <label class="form-check-label" for="holidaySun">Minggu</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="holidayDays" value="6"
+                                        id="holidaySat" <%=settings.holidayDays && settings.holidayDays.includes('6')
+                                        ? 'checked' : '' %>>
+                                    <label class="form-check-label" for="holidaySat">Sabtu</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="holidayDays" value="5"
+                                        id="holidayFri" <%=settings.holidayDays && settings.holidayDays.includes('5')
+                                        ? 'checked' : '' %>>
+                                    <label class="form-check-label" for="holidayFri">Jumat</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tanggal Libur Spesifik (YYYY-MM-DD)</label>
+                            <textarea class="form-control" name="holidays" rows="2"
+                                placeholder="Contoh: 2024-01-01, 2024-08-17"><%= settings.holidays ? settings.holidays.join(', ') : '' %></textarea>
+                            <small class="text-muted">Pisahkan dengan koma</small>
+                        </div>
+                        <hr>
+
+                        <div class="mb-3">
+                            <label class="form-label">Template Pesan</label>
+                            <textarea class="form-control" name="messageTemplate"
+                                rows="4"><%= settings.messageTemplate %></textarea>
+                            <small class="text-muted">Variables: {{date}}, {{data}}</small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100" id="saveBtn"><i
+                                class="fas fa-save me-2"></i> Simpan Pengaturan</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -147,11 +186,61 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+        // Send Broadcast
+        document.getElementById('broadcastForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Sending...';
+
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
-            data.autoBroadcast = document.getElementById('autoBroadcast').checked;
+
+            try {
+                const res = await fetch('/api/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                alert(result.message);
+            } catch (err) {
+                alert('Failed to send message');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fab fa-whatsapp me-2"></i> Kirim Pesan';
+            }
+        });
+
+        // Save Settings
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Saving...';
+
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            // Fix: Checkboxes with same name need manual collection
+            const holidayDays = [];
+            document.querySelectorAll('input[name="holidayDays"]:checked').forEach(cb => {
+                holidayDays.push(cb.value);
+            });
+            data.holidayDays = holidayDays;
+
+            // Include Connection Settings from the Manual Form
+            // ensure we grab the values properly
+            const manualForm = document.getElementById('broadcastForm');
+            if (manualForm) {
+                data.wahaUrl = manualForm.querySelector('[name="wahaUrl"]').value;
+                data.sessionId = manualForm.querySelector('[name="sessionId"]').value;
+                data.apiKey = manualForm.querySelector('[name="apiKey"]').value;
+                data.targetNumber = manualForm.querySelector('[name="target"]').value;
+            }
+
+            // Checkbox handling for boolean
+            if (!data.autoBroadcast) data.autoBroadcast = 'off';
 
             try {
                 const res = await fetch('/api/settings', {
@@ -161,48 +250,12 @@
                 });
                 const result = await res.json();
                 alert(result.message);
+                location.reload();
             } catch (err) {
-                alert('Gagal menyimpan settings');
-            }
-        });
-
-        document.getElementById('broadcastBtn').addEventListener('click', async () => {
-            const message = document.getElementById('manualMessage').value || "Test Broadcast Manual";
-
-            // Get values directly from inputs to allow testing without saving
-            const target = document.querySelector('input[name="targetNumber"]').value;
-            const wahaUrl = document.querySelector('input[name="wahaUrl"]').value;
-            const sessionId = document.querySelector('input[name="sessionId"]').value;
-            const apiKey = document.querySelector('input[name="apiKey"]').value;
-
-            if (!target) {
-                alert('Target Number harus diisi!');
-                return;
-            }
-
-            if (!confirm(`Kirim pesan ini ke ${target}?`)) return;
-
-            try {
-                const res = await fetch('/api/broadcast', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message,
-                        target,
-                        wahaUrl, // Optional: backend needs to support overriding these if passed
-                        sessionId,
-                        apiKey
-                    })
-                });
-                const result = await res.json();
-                if (result.success) {
-                    alert(result.message);
-                } else {
-                    alert('Error: ' + result.message);
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Gagal mengirim broadcast (Network Error)');
+                alert('Failed to save settings');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save me-2"></i> Simpan Pengaturan';
             }
         });
     </script>

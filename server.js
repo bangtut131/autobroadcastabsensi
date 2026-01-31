@@ -35,12 +35,16 @@ const attendanceService = require('./services/attendance');
 const wahaService = require('./services/waha');
 const schedulerService = require('./services/scheduler');
 const storageService = require('./services/storage');
+const employeeService = require('./services/employee');
 
 // Initialize App
 (async () => {
     // Load Settings (Supabase or Local)
     global.SETTINGS = await storageService.loadSettings();
     schedulerService.init(global.SETTINGS);
+
+    // Global Cache for Employee Data
+    global.EMPLOYEE_CACHE = null;
 
     // Session Middleware
     app.use(session({
@@ -108,6 +112,13 @@ const storageService = require('./services/storage');
         });
     });
 
+    app.get('/karyawan', requireAuth, (req, res) => {
+        res.render('karyawan', {
+            page: 'karyawan',
+            data: global.EMPLOYEE_CACHE
+        });
+    });
+
     // Routes - API
     app.post('/api/run-check', async (req, res) => {
         try {
@@ -122,6 +133,22 @@ const storageService = require('./services/storage');
         }
     });
 
+    app.post('/api/karyawan/sync', async (req, res) => {
+        try {
+            // Temporary: Use attendance data as requested by user until credentials for employee API are available
+            const data = await attendanceService.fetchData();
+
+            // Map/Transform if necessary, but attendanceService already has the fields we added
+            global.EMPLOYEE_CACHE = {
+                timestamp: new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }),
+                results: data
+            };
+            res.json({ success: true, message: 'Data synced from Attendance Records', data: global.EMPLOYEE_CACHE });
+        } catch (error) {
+            // Return 200 with success: false so frontend can display the message nicely
+            res.json({ success: false, message: error.message });
+        }
+    });
     app.post('/api/broadcast', async (req, res) => {
         try {
             // Allow overriding settings via request body (useful for manual test from UI)
@@ -144,15 +171,22 @@ const storageService = require('./services/storage');
     });
 
     app.post('/api/settings', async (req, res) => {
+        // Use default empty object if keys missing to avoid undefined
         const { wahaUrl, sessionId, apiKey, targetNumber, autoBroadcast, schedules, schedulesLeave, schedulesLate, messageTemplate } = req.body;
 
-        // Update Global Settings (In-Memory)
-        global.SETTINGS.wahaUrl = wahaUrl;
-        global.SETTINGS.sessionId = sessionId || 'default';
-        global.SETTINGS.apiKey = apiKey || '';
-        global.SETTINGS.targetNumber = targetNumber;
-        global.SETTINGS.messageTemplate = messageTemplate || '*Laporan Absensi Harian*\n📅 {{date}}\n\n{{data}}';
-        global.SETTINGS.autoBroadcast = autoBroadcast === 'on' || autoBroadcast === true;
+        // Update Global Settings (Merge logic: Only update if provided value is not undefined/null)
+        // Note: For booleans/strings, we check undefined specifically
+        if (wahaUrl !== undefined) global.SETTINGS.wahaUrl = wahaUrl;
+        if (sessionId !== undefined) global.SETTINGS.sessionId = sessionId;
+        if (apiKey !== undefined) global.SETTINGS.apiKey = apiKey;
+        if (targetNumber !== undefined) global.SETTINGS.targetNumber = targetNumber;
+        if (messageTemplate !== undefined) global.SETTINGS.messageTemplate = messageTemplate;
+
+        // AutoBroadcast is a checkbox, typically 'on' or undefined in form submit, 
+        // but since we JSON.stringify data from frontend, it might be explicitly true/false or 'off'
+        if (autoBroadcast !== undefined) {
+            global.SETTINGS.autoBroadcast = (autoBroadcast === 'on' || autoBroadcast === true);
+        }
 
         // Helper to parse comma separated string
         const parseSchedules = (input) => {
@@ -167,6 +201,12 @@ const storageService = require('./services/storage');
         global.SETTINGS.schedules = parseSchedules(schedules);
         global.SETTINGS.schedulesLeave = parseSchedules(schedulesLeave);
         global.SETTINGS.schedulesLate = parseSchedules(schedulesLate);
+
+        // Handle Holidays
+        // holidays: "2024-02-14, 2024-12-25" -> Array
+        global.SETTINGS.holidays = parseSchedules(req.body.holidays);
+        // holidayDays: ["0", "6"] (Sundays, Saturdays) -> Array
+        global.SETTINGS.holidayDays = req.body.holidayDays || [];
 
         // Save (Supabase + Local)
         await storageService.saveSettings(global.SETTINGS);

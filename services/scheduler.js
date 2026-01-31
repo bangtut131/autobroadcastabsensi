@@ -45,6 +45,12 @@ class SchedulerService {
 
     async runBroadcastRoutine(settings, type = 'general') {
         try {
+            // Check for Holiday
+            if (this.isHoliday(settings)) {
+                console.log(`[Scheduler] Today is a holiday. Skipping ${type} broadcast.`);
+                return;
+            }
+
             // 1. Fetch Data
             const data = await attendanceService.fetchData();
             global.ATTENDANCE_CACHE = {
@@ -140,6 +146,37 @@ class SchedulerService {
             .replace('{{data}}', listStr);
 
         return message;
+    }
+
+    isHoliday(settings) {
+        const now = new Date();
+        const todayDate = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+        // Adjust for timezone if needed, but 'new Date()' on server should be local
+        // Better to use Indonesian time for clarity
+        const idTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+        const dateObj = new Date(idTime);
+        const dayOfWeek = dateObj.getDay();
+        const dateStr = dateObj.toISOString().split('T')[0];
+
+        // 1. Check Specific Dates
+        if (settings.holidays && Array.isArray(settings.holidays)) {
+            if (settings.holidays.includes(dateStr)) {
+                console.log(`[Scheduler] Holiday Match: ${dateStr} is set as holiday.`);
+                return true;
+            }
+        }
+
+        // 2. Check Weekly Holidays (Sat/Sun)
+        if (settings.holidayDays && Array.isArray(settings.holidayDays)) {
+            // Ensure inputs are integers
+            const days = settings.holidayDays.map(d => parseInt(d));
+            if (days.includes(dayOfWeek)) {
+                console.log(`[Scheduler] Holiday Match: Day ${dayOfWeek} is a weekly holiday.`);
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
