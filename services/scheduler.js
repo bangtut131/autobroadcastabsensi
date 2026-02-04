@@ -84,66 +84,104 @@ class SchedulerService {
     generateReport(data, type = 'general') {
         const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jakarta' });
 
-        let filteredData = data;
-        let titleSuffix = "";
-
-        // Filter Logic
-        if (type === 'leave') {
-            filteredData = data.filter(item =>
-                item.status.includes('Cuti') ||
-                item.status.includes('Izin') ||
-                item.status.includes('Sakit')
-            );
-            titleSuffix = " (Cuti & Izin)";
-        } else if (type === 'late') {
-            // Debug: Log all unique statuses found
-            const statuses = [...new Set(data.map(item => item.status))];
-            console.log(`[Scheduler] Debug Statuses: ${statuses.join(', ')}`);
-
-            filteredData = data.filter(item =>
-                item.menitTerlambat > 0 ||
-                item.status.toLowerCase().includes('alpha') ||
-                item.status.toLowerCase().includes('alpa') ||
-                item.status.toLowerCase().includes('mangkir') ||
-                item.status.toLowerCase().includes('bolos')
-            );
-            titleSuffix = " (Terlambat & Alpha)";
-        }
-
-        // Generate list string first
-        let listStr = "";
-        if (filteredData.length === 0) {
-            listStr = `_Tidak ada data${titleSuffix.toLowerCase()}._`;
-        } else {
-            filteredData.forEach((item, i) => {
-                let statusIcon = item.status === 'Hadir' ? '✅' : '⚠️';
-                if (item.status.includes('Cuti') || item.status.includes('Izin')) statusIcon = 'ℹ️';
-                if (item.status.includes('Sakit')) statusIcon = '🏥';
-
-                listStr += `${i + 1}. *${item.nama}* (${item.nik})\n   ${statusIcon} Status: ${item.status}\n   🕒 Masuk: ${item.jamMasuk} | Keluar: ${item.jamKeluar}\n`;
-
-                if (item.menitTerlambat > 0) {
-                    listStr += `   ⏳ Terlambat: ${item.menitTerlambat} menit\n`;
-                }
-                if (item.keterangan && item.keterangan !== '-') {
-                    listStr += `   📝 Ket: ${item.keterangan}\n`;
-                }
-                listStr += `\n`;
-            });
-        }
-
         // Use template from settings or default
         let template = global.SETTINGS.messageTemplate || '*Laporan Absensi Harian*\n📅 {{date}}\n\n{{data}}';
+        let body = "";
 
-        // Adjust title in template if needed (simple hack: insert suffix in first line)
-        if (titleSuffix) {
-            template = template.replace('Laporan Absensi Harian', `Laporan Absensi Harian${titleSuffix}`);
+        // --- TYPE: LEAVE (Izin & Cuti) ---
+        if (type === 'leave') {
+            const izinItems = data.filter(item => item.status.includes('Izin'));
+            const cutiItems = data.filter(item => item.status.includes('Cuti'));
+            const sickItems = data.filter(item => item.status.includes('Sakit')); // Optional: Include Sakit if needed, or group with Izin
+
+            // Section: Izin
+            body += `*Izin*\n`;
+            if (izinItems.length === 0) body += `_Tidak ada data._\n`;
+            else {
+                izinItems.forEach((item, i) => {
+                    body += `${i + 1}. ${item.nama} (${item.keterangan || item.status})\n`;
+                });
+            }
+            body += `\n`;
+
+            // Section: Cuti
+            body += `*Cuti*\n`;
+            if (cutiItems.length === 0) body += `_Tidak ada data._\n`;
+            else {
+                cutiItems.forEach((item, i) => {
+                    body += `${i + 1}. ${item.nama} (${item.keterangan || item.status})\n`;
+                });
+            }
+
+            // Section: Sakit (Optional addition for completeness)
+            if (sickItems.length > 0) {
+                body += `\n*Sakit*\n`;
+                sickItems.forEach((item, i) => {
+                    body += `${i + 1}. ${item.nama}\n`;
+                });
+            }
+
+            template = template.replace('Laporan Absensi Harian', `Laporan Khusus Izin & Cuti`);
+        }
+
+        // --- TYPE: LATE (Alpha & Terlambat) ---
+        else if (type === 'late') {
+            const alphaKeywords = ['alpha', 'alpa', 'mangkir', 'bolos', 'tanpa keterangan'];
+            const alphaItems = data.filter(item => alphaKeywords.some(k => item.status.toLowerCase().includes(k)));
+
+            // Late: Must have > 0 late minutes AND not be Alpha
+            const lateItems = data.filter(item => item.menitTerlambat > 0 && !alphaKeywords.some(k => item.status.toLowerCase().includes(k)));
+
+            // Section: Alpha (Names Only)
+            body += `*Alpha*\n`;
+            if (alphaItems.length === 0) body += `_Tidak ada data._\n`;
+            else {
+                alphaItems.forEach((item, i) => {
+                    body += `${i + 1}. ${item.nama}\n`;
+                });
+            }
+            body += `\n`;
+
+            // Section: Terlambat (Name, In Time, Late Duration)
+            body += `*Terlambat*\n`;
+            if (lateItems.length === 0) body += `_Tidak ada data._\n`;
+            else {
+                lateItems.forEach((item, i) => {
+                    body += `${i + 1}. ${item.nama}\n   🕒 Masuk: ${item.jamMasuk} | ⏳ ${item.menitTerlambat} menit\n`;
+                });
+            }
+
+            template = template.replace('Laporan Absensi Harian', `Laporan Khusus Terlambat & Alpha`);
+        }
+
+        // --- TYPE: GENERAL (Default) ---
+        else {
+            // Original logic for General Report
+            if (data.length === 0) {
+                body = `_Tidak ada data._`;
+            } else {
+                data.forEach((item, i) => {
+                    let statusIcon = item.status === 'Hadir' ? '✅' : '⚠️';
+                    if (item.status.includes('Cuti') || item.status.includes('Izin')) statusIcon = 'ℹ️';
+                    if (item.status.includes('Sakit')) statusIcon = '🏥';
+
+                    body += `${i + 1}. *${item.nama}* (${item.nik})\n   ${statusIcon} Status: ${item.status}\n   🕒 Masuk: ${item.jamMasuk} | Keluar: ${item.jamKeluar}\n`;
+
+                    if (item.menitTerlambat > 0) {
+                        body += `   ⏳ Terlambat: ${item.menitTerlambat} menit\n`;
+                    }
+                    if (item.keterangan && item.keterangan !== '-') {
+                        body += `   📝 Ket: ${item.keterangan}\n`;
+                    }
+                    body += `\n`;
+                });
+            }
         }
 
         // Replace placeholders
         let message = template
             .replace('{{date}}', today)
-            .replace('{{data}}', listStr);
+            .replace('{{data}}', body);
 
         return message;
     }
