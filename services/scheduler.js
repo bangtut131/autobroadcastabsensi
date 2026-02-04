@@ -151,7 +151,7 @@ class SchedulerService {
                 });
             }
 
-            template = template.replace('Laporan Absensi Harian', `Laporan Khusus Terlambat & Alpha`);
+            template = template.replace('Laporan Absensi Harian', `Laporan Absensi Terlambat & Alpha`);
         }
 
         // --- TYPE: GENERAL (Default) ---
