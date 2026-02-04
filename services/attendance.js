@@ -114,7 +114,8 @@ class AttendanceService {
                 jamMasuk: this.formatTime(rawIn),
                 jamKeluar: this.formatTime(rawOut),
                 // Docs: menitterlambatdiluarizin, menitterlambattermasukizin
-                menitTerlambat: (parseFloat(item.menitterlambatdiluarizin) || 0) + (parseFloat(item.menitterlambattermasukizin) || 0),
+                // Fix: Only use 'diluarizin' to avoid double counting (Gaji.id sends duplicates)
+                menitTerlambat: parseFloat(item.menitterlambatdiluarizin) || 0,
                 status: item.jenisabsensirealisasi || item.status || 'Hadir',
                 keterangan: leaveDesc,
                 // Additional fields for Karyawan menu
