@@ -64,6 +64,24 @@ class AttendanceService {
         }
     }
 
+    formatTime(raw) {
+        if (!raw || raw === '-' || raw.trim() === '') return '-';
+
+        let cleaned = raw.toString().trim();
+
+        // Handle "1037" -> "10:37"
+        if (cleaned.length === 4 && /^\d{4}$/.test(cleaned)) {
+            return `${cleaned.substring(0, 2)}:${cleaned.substring(2)}`;
+        }
+
+        // Handle "800" -> "08:00"
+        if (cleaned.length === 3 && /^\d{3}$/.test(cleaned)) {
+            return `0${cleaned.substring(0, 1)}:${cleaned.substring(1)}`;
+        }
+
+        return cleaned;
+    }
+
     processData(rawData) {
         // Updated mapping based on: {"data":{"rptInquiryAbsensiHarians":[...]}}
         let list = [];
@@ -84,16 +102,17 @@ class AttendanceService {
             if (item.jenisabsensirealisasi && ['Cuti', 'Izin', 'Sakit'].some(s => item.jenisabsensirealisasi.includes(s))) {
                 leaveDesc = item.jenisabsensirealisasi;
             }
-            // Check for specific dynamic keys if needed (e.g. sick_leave_*, special_leave_*)
-            // For now, relying on 'jenisabsensirealisasi' is safer as a summary, 
-            // but we can iterate keys if that is insufficient.
+
+            // Raw fields
+            const rawIn = item.jammasuk;
+            const rawOut = item.jampulang;
 
             return {
                 nama: item.nmkry || item.fullName || 'Unknown',
                 nik: item.nik || '-',
-                // Docs: jammasuk, jampulang. If null -> '-'
-                jamMasuk: item.jammasuk || '-',
-                jamKeluar: item.jampulang || '-',
+                // Apply formatting
+                jamMasuk: this.formatTime(rawIn),
+                jamKeluar: this.formatTime(rawOut),
                 // Docs: menitterlambatdiluarizin, menitterlambattermasukizin
                 menitTerlambat: (parseFloat(item.menitterlambatdiluarizin) || 0) + (parseFloat(item.menitterlambattermasukizin) || 0),
                 status: item.jenisabsensirealisasi || item.status || 'Hadir',
