@@ -98,9 +98,13 @@ class AttendanceService {
         // We map what we can, and default to '-' for missing times.
         return list.map(item => {
             // Helper to find dynamic leave description
+            // Fix: Also match 'leave' (English format from Gaji.id API: "Unpaid leave", "Paid leave", etc.)
             let leaveDesc = '-';
-            if (item.jenisabsensirealisasi && ['Cuti', 'Izin', 'Sakit'].some(s => item.jenisabsensirealisasi.includes(s))) {
-                leaveDesc = item.jenisabsensirealisasi;
+            if (item.jenisabsensirealisasi) {
+                const status = item.jenisabsensirealisasi.toLowerCase();
+                if (['cuti', 'izin', 'sakit', 'leave'].some(s => status.includes(s))) {
+                    leaveDesc = item.jenisabsensirealisasi;
+                }
             }
 
             // Raw fields
