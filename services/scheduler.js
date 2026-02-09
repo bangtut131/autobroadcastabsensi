@@ -90,13 +90,20 @@ class SchedulerService {
 
         // --- TYPE: LEAVE (Izin & Cuti) ---
         if (type === 'leave') {
-            const izinItems = data.filter(item => item.status.includes('Izin'));
+            // Fix: Also match 'leave' (English format from Gaji.id API: "Unpaid leave", "Paid leave", etc.)
+            const izinItems = data.filter(item => {
+                const status = (item.status || '').toLowerCase();
+                return status.includes('izin') || status.includes('leave');
+            });
             const cutiItems = data.filter(item => item.status.includes('Cuti'));
-            const sickItems = data.filter(item => item.status.includes('Sakit')); // Optional: Include Sakit if needed, or group with Izin
+            const sickItems = data.filter(item => item.status.includes('Sakit'));
+
+            // NEW: Late Permission - Employees who are present but have approved late permission
+            const latePermissionItems = data.filter(item => item.hasLatePermission === true);
 
             // Section: Izin
             body += `*Izin*\n`;
-            if (izinItems.length === 0) body += `_Tidak ada data._\n`;
+            if (izinItems.length === 0) body += `_Tidak ada karyawan yang izin._\n`;
             else {
                 izinItems.forEach((item, i) => {
                     body += `${i + 1}. ${item.nama} (${item.keterangan || item.status})\n`;
@@ -106,7 +113,7 @@ class SchedulerService {
 
             // Section: Cuti
             body += `*Cuti*\n`;
-            if (cutiItems.length === 0) body += `_Tidak ada data._\n`;
+            if (cutiItems.length === 0) body += `_Tidak ada karyawan yang cuti._\n`;
             else {
                 cutiItems.forEach((item, i) => {
                     body += `${i + 1}. ${item.nama} (${item.keterangan || item.status})\n`;
@@ -118,6 +125,15 @@ class SchedulerService {
                 body += `\n*Sakit*\n`;
                 sickItems.forEach((item, i) => {
                     body += `${i + 1}. ${item.nama}\n`;
+                });
+            }
+
+            // NEW Section: Izin Terlambat (Present with approved late permission)
+            body += `\n*Izin Terlambat Masuk*\n`;
+            if (latePermissionItems.length === 0) body += `_Tidak ada karyawan dengan izin terlambat._\n`;
+            else {
+                latePermissionItems.forEach((item, i) => {
+                    body += `${i + 1}. ${item.nama}\n   🕒 Masuk: ${item.jamMasuk} | ⏳ ${item.menitTerlambatDenganIzin} menit (diizinkan)\n`;
                 });
             }
 

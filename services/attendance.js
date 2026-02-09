@@ -107,6 +107,13 @@ class AttendanceService {
             const rawIn = item.jammasuk;
             const rawOut = item.jampulang;
 
+            // Late permission detection:
+            // - menitterlambattermasukizin > 0: Has late minutes (including approved permission)
+            // - menitterlambatdiluarizin == 0: No penalty (permission approved)
+            const menitDenganIzin = parseFloat(item.menitterlambattermasukizin) || 0;
+            const menitTanpaIzin = parseFloat(item.menitterlambatdiluarizin) || 0;
+            const hasLatePermission = menitDenganIzin > 0 && menitTanpaIzin === 0;
+
             return {
                 nama: item.nmkry || item.fullName || 'Unknown',
                 nik: item.nik || '-',
@@ -115,7 +122,10 @@ class AttendanceService {
                 jamKeluar: this.formatTime(rawOut),
                 // Docs: menitterlambatdiluarizin, menitterlambattermasukizin
                 // Fix: Only use 'diluarizin' to avoid double counting (Gaji.id sends duplicates)
-                menitTerlambat: parseFloat(item.menitterlambatdiluarizin) || 0,
+                menitTerlambat: menitTanpaIzin,
+                // New: Late permission fields
+                menitTerlambatDenganIzin: menitDenganIzin,
+                hasLatePermission: hasLatePermission,
                 status: item.jenisabsensirealisasi || item.status || 'Hadir',
                 keterangan: leaveDesc,
                 // Additional fields for Karyawan menu
