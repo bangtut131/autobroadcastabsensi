@@ -61,21 +61,34 @@ class SchedulerService {
             // 2. Generate Report based on type
             const report = this.generateReport(data, type);
 
-            // 3. Send via WAHA
-            if (settings.targetNumber) {
-                // Don't skip empty reports (User Request: Always send to verify scheduler works)
-                /* 
-                if (type !== 'general' && report.includes("_Tidak ada data")) {
-                     console.log(`[Scheduler] No data for ${type} report, skipping.`);
-                     return;
-                }
-                */
+            // 3. Send via WAHA - Support multiple targets
+            // Backward compatibility: support both targetNumber (string) and targetNumbers (array)
+            const targets = this.getTargets(settings);
 
-                await wahaService.sendText(settings.wahaUrl, settings.sessionId, settings.apiKey, settings.targetNumber, report);
-                console.log(`[Scheduler] ${type} broadcast sent successfully`);
-            } else {
-                console.log('[Scheduler] No target number set, skipping broadcast');
+            if (targets.length === 0) {
+                console.log('[Scheduler] No target numbers set, skipping broadcast');
+                return;
             }
+
+            console.log(`[Scheduler] Sending ${type} broadcast to ${targets.length} target(s)...`);
+
+            for (let i = 0; i < targets.length; i++) {
+                const target = targets[i];
+                try {
+                    await wahaService.sendText(settings.wahaUrl, settings.sessionId, settings.apiKey, target, report);
+                    console.log(`[Scheduler] ${type} broadcast sent to ${target} (${i + 1}/${targets.length})`);
+
+                    // Add delay between sends to avoid rate limiting (1.5 seconds)
+                    if (i < targets.length - 1) {
+                        await this.delay(1500);
+                    }
+                } catch (err) {
+                    console.error(`[Scheduler] Failed to send to ${target}:`, err.message);
+                    // Continue to next target even if one fails
+                }
+            }
+
+            console.log(`[Scheduler] ${type} broadcast completed to all targets`);
         } catch (error) {
             console.error('[Scheduler] Routine failed:', error.message);
         }
@@ -231,6 +244,24 @@ class SchedulerService {
         }
 
         return false;
+    }
+
+    // Helper: Get targets array with backward compatibility
+    getTargets(settings) {
+        // Support new format: targetNumbers (array)
+        if (settings.targetNumbers && Array.isArray(settings.targetNumbers) && settings.targetNumbers.length > 0) {
+            return settings.targetNumbers.filter(t => t && t.trim());
+        }
+        // Backward compatibility: old format targetNumber (string)
+        if (settings.targetNumber && typeof settings.targetNumber === 'string' && settings.targetNumber.trim()) {
+            return [settings.targetNumber.trim()];
+        }
+        return [];
+    }
+
+    // Helper: Delay function for rate limiting
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 

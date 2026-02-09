@@ -1,0 +1,45 @@
+﻿
+≡ƒº¬ TEST: Late Permission Detection Feature
+==================================================
+
+1∩╕ÅΓâú Fetching data from Gaji.id API...
+[AttendanceService] Fetching from https://member.gaji.id/gajiid-API/open-api/dr-absensi-harian/search
+[AttendanceService] Processed 76 records.
+   Γ£à Fetched 76 records
+
+2∩╕ÅΓâú Verifying new fields in processed data...
+   Sample item fields:
+   - hasLatePermission: Γ£à (true)
+   - menitTerlambatDenganIzin: Γ£à (60)
+
+3∩╕ÅΓâú Finding employees with late permission...
+   Found: 1 employee(s)
+
+   ≡ƒôï Employees with Izin Terlambat:
+   1. ACEP YUDI ACHMADI
+      ≡ƒòÆ Jam Masuk: 09:30
+      ΓÅ│ Terlambat: 60 menit (diizinkan)
+
+4∩╕ÅΓâú Testing updated Izin filter (includes "leave")...
+   Found: 1 employee(s) with Izin/Leave status
+   1. DIAJENG ESTHI ANGGRAENI PRABOWO - Unpaid leave
+
+5∩╕ÅΓâú Generating Leave Report (preview)...
+
+ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+*Laporan Khusus Izin & Cuti*
+≡ƒôà Senin, 9 Februari 2026
+
+*Izin*
+1. DIAJENG ESTHI ANGGRAENI PRABOWO (-)
+
+*Cuti*
+1. WAHYU MARDIANA MULYANINGSIH (Cuti melahirkan)
+
+*Izin Terlambat Masuk*
+1. ACEP YUDI ACHMADI
+   ≡ƒòÆ Masuk: 09:30 | ΓÅ│ 60 menit (diizinkan)
+
+ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+Γ£à TEST COMPLETED SUCCESSFULLY!

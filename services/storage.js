@@ -19,7 +19,7 @@ class StorageService {
     getDefaults() {
         return {
             wahaUrl: 'http://localhost:3000',
-            targetNumber: '',
+            targetNumbers: [],
             sessionId: 'default',
             apiKey: '',
             messageTemplate: '*Laporan Absensi Harian*\n📅 {{date}}\n\n{{data}}',

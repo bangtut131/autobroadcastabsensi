@@ -20,7 +20,7 @@ app.set('views', path.join(__dirname, 'views'));
 global.ATTENDANCE_CACHE = null; // Cache for attendance data
 global.SETTINGS = {
     wahaUrl: 'http://localhost:3000',
-    targetNumber: '', // Default target
+    targetNumbers: [], // Multiple targets support
     sessionId: 'default', // Default session
     apiKey: '', // Optional API Key
     messageTemplate: '*Laporan Absensi Harian*\n📅 {{date}}\n\n{{data}}', // Default Template
@@ -172,15 +172,23 @@ const employeeService = require('./services/employee');
 
     app.post('/api/settings', async (req, res) => {
         // Use default empty object if keys missing to avoid undefined
-        const { wahaUrl, sessionId, apiKey, targetNumber, autoBroadcast, schedules, schedulesLeave, schedulesLate, messageTemplate } = req.body;
+        const { wahaUrl, sessionId, apiKey, targetNumbers, autoBroadcast, schedules, schedulesLeave, schedulesLate, messageTemplate } = req.body;
 
         // Update Global Settings (Merge logic: Only update if provided value is not undefined/null)
         // Note: For booleans/strings, we check undefined specifically
         if (wahaUrl !== undefined) global.SETTINGS.wahaUrl = wahaUrl;
         if (sessionId !== undefined) global.SETTINGS.sessionId = sessionId;
         if (apiKey !== undefined) global.SETTINGS.apiKey = apiKey;
-        if (targetNumber !== undefined) global.SETTINGS.targetNumber = targetNumber;
         if (messageTemplate !== undefined) global.SETTINGS.messageTemplate = messageTemplate;
+
+        // Handle targetNumbers - support both array and comma-separated string
+        if (targetNumbers !== undefined) {
+            if (Array.isArray(targetNumbers)) {
+                global.SETTINGS.targetNumbers = targetNumbers.filter(t => t && t.trim());
+            } else if (typeof targetNumbers === 'string') {
+                global.SETTINGS.targetNumbers = targetNumbers.split(',').map(t => t.trim()).filter(t => t);
+            }
+        }
 
         // AutoBroadcast is a checkbox, typically 'on' or undefined in form submit, 
         // but since we JSON.stringify data from frontend, it might be explicitly true/false or 'off'
