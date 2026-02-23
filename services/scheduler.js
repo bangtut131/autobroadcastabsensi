@@ -18,6 +18,14 @@ class SchedulerService {
             this.scheduleTasks(settings.schedulesLeave, settings, 'leave');
             this.scheduleTasks(settings.schedulesLate, settings, 'late');
         }
+
+        // Keep-alive Supabase (runs every day at 00:00)
+        console.log(`[Scheduler] Scheduling Supabase Keep-Alive ping (0 0 * * *)`);
+        this.tasks['supabase_ping'] = cron.schedule('0 0 * * *', async () => {
+            console.log('[Scheduler] Running Supabase keep-alive ping');
+            const storage = require('./storage'); // Require dynamically or rely on it being the single instance
+            await storage.pingSupabase();
+        });
     }
 
     scheduleTasks(timeArray, settings, type) {

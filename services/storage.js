@@ -93,6 +93,26 @@ class StorageService {
             console.error('[Storage] Local file save error:', err.message);
         }
     }
+
+    async pingSupabase() {
+        if (this.supabase) {
+            try {
+                // Lightweight query to keep Supabase project active
+                const { error } = await this.supabase
+                    .from('app_settings')
+                    .select('id')
+                    .limit(1);
+
+                if (error) {
+                    console.error('[Storage] Supabase keep-alive ping failed:', error.message);
+                } else {
+                    console.log('[Storage] Supabase keep-alive ping successful');
+                }
+            } catch (err) {
+                console.error('[Storage] Unexpected Supabase ping error:', err.message);
+            }
+        }
+    }
 }
 
 module.exports = new StorageService();
