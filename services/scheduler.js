@@ -17,14 +17,15 @@ class SchedulerService {
             this.scheduleTasks(settings.schedules, settings, 'general');
             this.scheduleTasks(settings.schedulesLeave, settings, 'leave');
             this.scheduleTasks(settings.schedulesLate, settings, 'late');
+            this.scheduleTasks(settings.schedulesWeeklyRecap, settings, 'weekly_recap');
         }
 
         // Keep-alive Supabase (runs every day at 00:00)
         console.log(`[Scheduler] Scheduling Supabase Keep-Alive ping (0 0 * * *)`);
         this.tasks['supabase_ping'] = cron.schedule('0 0 * * *', async () => {
-            console.log('[Scheduler] Running Supabase keep-alive ping');
-            const storage = require('./storage'); // Require dynamically or rely on it being the single instance
-            await storage.pingSupabase();
+             console.log('[Scheduler] Running Supabase keep-alive ping');
+             const storage = require('./storage'); // Require dynamically or rely on it being the single instance
+             await storage.pingSupabase();
         });
     }
 
@@ -34,7 +35,12 @@ class SchedulerService {
         timeArray.forEach((time, index) => {
             // Time format: "HH:mm"
             const [hour, minute] = time.split(':');
-            const cronExpr = `${minute} ${hour} * * *`;
+            let cronExpr = `${minute} ${hour} * * *`;
+            
+            if (type === 'weekly_recap') {
+                cronExpr = `${minute} ${hour} * * 6`; // 6 corresponds to Saturday
+            }
+            
             const taskId = `${type}_${index}`;
 
             console.log(`[Scheduler] Scheduling ${type} broadcast for ${time} (${cronExpr})`);
@@ -53,18 +59,23 @@ class SchedulerService {
 
     async runBroadcastRoutine(settings, type = 'general') {
         try {
-            // Check for Holiday
-            if (this.isHoliday(settings)) {
+            // Check for Holiday (Skip standard broadcasts, but run weekly recap regardless)
+            if (type !== 'weekly_recap' && this.isHoliday(settings)) {
                 console.log(`[Scheduler] Today is a holiday. Skipping ${type} broadcast.`);
                 return;
             }
 
             // 1. Fetch Data
-            const data = await attendanceService.fetchData();
-            global.ATTENDANCE_CACHE = {
-                timestamp: new Date().toLocaleString(),
-                results: data
-            };
+            let data;
+            if (type === 'weekly_recap') {
+                data = await attendanceService.getMonthlyRecap();
+            } else {
+                data = await attendanceService.fetchData();
+                global.ATTENDANCE_CACHE = {
+                    timestamp: new Date().toLocaleString(),
+                    results: data
+                };
+            }
 
             // 2. Generate Report based on type
             const report = this.generateReport(data, type);
@@ -109,8 +120,37 @@ class SchedulerService {
         let template = global.SETTINGS.messageTemplate || '*Laporan Absensi Harian*\n📅 {{date}}\n\n{{data}}';
         let body = "";
 
+        // --- TYPE: WEEKLY RECAP ---
+        if (type === 'weekly_recap') {
+            const dateObj = new Date();
+            const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
+            
+            body += `*Rekapitulasi Keterlambatan*\n`;
+            const lateItems = data.filter(d => d.totalLateMinutes > 0).sort((a,b) => b.totalLateMinutes - a.totalLateMinutes);
+            if (lateItems.length === 0) body += `_Tidak ada rekor keterlambatan bulan ini._\n`;
+            else {
+                lateItems.forEach((item, i) => {
+                    body += `${i+1}. ${item.nama} - ⏳ ${item.totalLateMinutes} menit\n`;
+                });
+            }
+
+            body += `\n*Rekapitulasi Alpha*\n`;
+            const alphaItems = data.filter(d => d.totalAlphaDays > 0).sort((a,b) => b.totalAlphaDays - a.totalAlphaDays);
+            if (alphaItems.length === 0) body += `_Tidak ada rekor alpha bulan ini._\n`;
+            else {
+                alphaItems.forEach((item, i) => {
+                    body += `${i+1}. ${item.nama} - ❌ ${item.totalAlphaDays} hari\n`;
+                });
+            }
+
+            // Provide a note indicating it is for current month
+            body += `\n_Catatan: Rekapitulasi dihitung dari awal bulan hingga hari ini._`;
+
+            template = template.replace('Laporan Absensi Harian', `Laporan Rekapitulasi Absensi (${monthName})`);
+        }
+        
         // --- TYPE: LEAVE (Izin & Cuti) ---
-        if (type === 'leave') {
+        else if (type === 'leave') {
             // Fix: Also match 'leave' (English format from Gaji.id API: "Unpaid leave", "Paid leave", etc.)
             const izinItems = data.filter(item => {
                 const status = (item.status || '').toLowerCase();

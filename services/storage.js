@@ -26,7 +26,8 @@ class StorageService {
             autoBroadcast: false,
             schedules: [],
             schedulesLeave: [],
-            schedulesLate: []
+            schedulesLate: [],
+            schedulesWeeklyRecap: []
         };
     }
 

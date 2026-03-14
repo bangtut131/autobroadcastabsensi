@@ -139,6 +139,14 @@
                                 placeholder="Ex: 10:00">
                         </div>
 
+                        <div class="mb-3">
+                            <label class="form-label">Jadwal Rekap Mingguan (Setiap Sabtu) - HH:mm</label>
+                            <input type="text" class="form-control" name="schedulesWeeklyRecap"
+                                value="<%= settings.schedulesWeeklyRecap ? settings.schedulesWeeklyRecap.join(', ') : '' %>"
+                                placeholder="Ex: 12:00">
+                            <small class="text-muted">Laporan rekap keterlambatan dan alpha bulanan</small>
+                        </div>
+
                         <hr>
                         <h6 class="mb-3">Pengaturan Hari Libur (Tidak ada Broadcast)</h6>
 

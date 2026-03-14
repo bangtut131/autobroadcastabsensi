@@ -64,6 +64,68 @@ class AttendanceService {
         }
     }
 
+    async getMonthlyRecap() {
+        if (!this.BASE_URL) throw new Error('BASE_URL not configured');
+
+        const headers = this.generateAuthHeaders();
+        const url = `${this.BASE_URL}${this.API_PATH}`;
+
+        const dateObj = new Date();
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const today = dateObj.toISOString().split('T')[0];
+        const firstDayOfMonth = `${year}-${month}-01`;
+
+        const params = {
+            namaFormatLaporan: 'Data Harian',
+            tanggalAbsensiAwal: firstDayOfMonth,
+            tanggalAbsensiAkhir: today
+        };
+
+        try {
+            console.log(`[AttendanceService] Fetching recap from ${firstDayOfMonth} to ${today}`);
+            const response = await axios.get(url, { headers, params });
+
+            if (response.data && (response.data.status === 'ERROR' || (response.data.code && response.data.code !== 200))) {
+                console.error('[AttendanceService] API returned error:', response.data);
+                throw new Error('API Error: ' + JSON.stringify(response.data));
+            }
+
+            let list = [];
+            if (response.data.data && Array.isArray(response.data.data.rptInquiryAbsensiHarians)) {
+                list = response.data.data.rptInquiryAbsensiHarians;
+            } else if (response.data.data && Array.isArray(response.data.data)) {
+                list = response.data.data;
+            }
+
+            // Aggregate data
+            const summary = {};
+            list.forEach(item => {
+                const nama = item.nmkry || item.fullName || 'Unknown';
+                const nik = item.nik || '-';
+                const key = nik + '_' + nama;
+
+                if (!summary[key]) {
+                    summary[key] = { nama, nik, totalLateMinutes: 0, totalAlphaDays: 0 };
+                }
+
+                summary[key].totalLateMinutes += (parseFloat(item.menitterlambatdiluarizin) || 0);
+
+                const status = (item.jenisabsensirealisasi || item.status || '').toLowerCase();
+                const alphaKeywords = ['alpha', 'alpa', 'mangkir', 'bolos', 'tanpa keterangan'];
+                if (alphaKeywords.some(k => status.includes(k))) {
+                    summary[key].totalAlphaDays += 1;
+                }
+            });
+
+            const result = Object.values(summary).filter(item => item.totalLateMinutes > 0 || item.totalAlphaDays > 0);
+            return result.sort((a,b) => b.totalAlphaDays - a.totalAlphaDays || b.totalLateMinutes - a.totalLateMinutes);
+        } catch (error) {
+            console.error('[AttendanceService] Failed to fetch recap:', error.message);
+            throw error;
+        }
+    }
+
     formatTime(raw) {
         if (!raw || raw === '-' || raw.trim() === '') return '-';
 
