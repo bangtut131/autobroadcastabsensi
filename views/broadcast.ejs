@@ -105,9 +105,30 @@
                                 class="fab fa-whatsapp me-2"></i> Kirim Pesan</button>
                     </form>
                 </div>
-            </div>
+                </div>
 
-            <!-- Settings -->
+                <!-- Test Report -->
+                <div class="card card-custom p-4 mb-4">
+                    <h5 class="mb-3">Test Laporan Otomatis</h5>
+                    <form id="testReportForm">
+                        <div class="mb-3">
+                            <label class="form-label">Pilih Jenis Laporan</label>
+                            <select class="form-select" name="reportType" id="reportType" required>
+                                <option value="general">Laporan General (Semua)</option>
+                                <option value="leave">Laporan Khusus Izin/Cuti</option>
+                                <option value="late">Laporan Khusus Terlambat/Alpha</option>
+                                <option value="weekly_recap">Rekap Mingguan (Bulanan)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nomor Tujuan Test</label>
+                            <input type="text" class="form-control" name="target" placeholder="Ex: 6281234567890@c.us" required>
+                            <small class="text-muted">Laporan akan dibuat real-time dan dikirim ke nomor ini untuk pengecekan format.</small>
+                        </div>
+                        <button type="submit" class="btn btn-info w-100 text-white" id="testBtn"><i class="fas fa-play me-2"></i> Kirim Test Laporan</button>
+                    </form>
+                </div>
+            </div>
             <div class="col-md-6">
                 <div class="card card-custom p-4 mb-4">
                     <h5 class="mb-3">Pengaturan Otomatis</h5>
@@ -222,6 +243,42 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fab fa-whatsapp me-2"></i> Kirim Pesan';
+            }
+        });
+
+        // Test Auto Report
+        document.getElementById('testReportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('testBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Mengirim...';
+
+            const manualForm = document.getElementById('broadcastForm');
+            const data = {
+                reportType: document.getElementById('reportType').value,
+                target: e.target.querySelector('[name="target"]').value,
+                wahaUrl: manualForm.querySelector('[name="wahaUrl"]').value,
+                sessionId: manualForm.querySelector('[name="sessionId"]').value,
+                apiKey: manualForm.querySelector('[name="apiKey"]').value
+            };
+
+            try {
+                const res = await fetch('/api/test-report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert(result.message);
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (err) {
+                alert('Gagal mengirim test laporan');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play me-2"></i> Kirim Test Laporan';
             }
         });
 

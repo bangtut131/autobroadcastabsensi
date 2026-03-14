@@ -170,6 +170,38 @@ const employeeService = require('./services/employee');
         }
     });
 
+    app.post('/api/test-report', async (req, res) => {
+        try {
+            const { reportType, target, wahaUrl, sessionId, apiKey } = req.body;
+
+            const targetNum = (target || global.SETTINGS.targetNumber || '').trim();
+            const targetUrl = wahaUrl || global.SETTINGS.wahaUrl;
+            const targetSession = sessionId || global.SETTINGS.sessionId;
+            const targetApiKey = apiKey || global.SETTINGS.apiKey;
+
+            if (!targetNum) {
+                return res.status(400).json({ success: false, message: 'Target number is required' });
+            }
+
+            // Fetch data based on report type
+            let data;
+            if (reportType === 'weekly_recap') {
+                data = await attendanceService.getMonthlyRecap();
+            } else {
+                data = await attendanceService.fetchData();
+            }
+
+            // Generate Report
+            const report = schedulerService.generateReport(data, reportType || 'general');
+
+            // Send via WAHA
+            await wahaService.sendText(targetUrl, targetSession, targetApiKey, targetNum, report);
+            res.json({ success: true, message: `Test ${reportType} report sent successfully` });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    });
+
     app.post('/api/settings', async (req, res) => {
         // Use default empty object if keys missing to avoid undefined
         const { wahaUrl, sessionId, apiKey, targetNumbers, autoBroadcast, schedules, schedulesLeave, schedulesLate, messageTemplate } = req.body;
