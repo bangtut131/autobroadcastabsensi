@@ -144,7 +144,7 @@ class SchedulerService {
             }
 
             // Provide a note indicating it is for current month
-            body += `\n_Catatan: Rekapitulasi dihitung dari awal bulan hingga hari ini._`;
+            body += `\n_Catatan: Rekapitulasi dihitung dari awal bulan hingga hari ini. Laporan akan dikirim secara otomatis oleh HR Bot setiap sabtu pukul 10:00 WIB._`;
 
             template = template.replace('Laporan Absensi Harian', `Laporan Rekapitulasi Absensi (${monthName})`);
         }
