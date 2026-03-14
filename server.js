@@ -204,7 +204,7 @@ const employeeService = require('./services/employee');
 
     app.post('/api/settings', async (req, res) => {
         // Use default empty object if keys missing to avoid undefined
-        const { wahaUrl, sessionId, apiKey, targetNumbers, autoBroadcast, schedules, schedulesLeave, schedulesLate, messageTemplate } = req.body;
+        const { wahaUrl, sessionId, apiKey, targetNumbers, autoBroadcast, schedules, schedulesLeave, schedulesLate, schedulesWeeklyRecap, messageTemplate } = req.body;
 
         // Update Global Settings (Merge logic: Only update if provided value is not undefined/null)
         // Note: For booleans/strings, we check undefined specifically
@@ -241,6 +241,7 @@ const employeeService = require('./services/employee');
         global.SETTINGS.schedules = parseSchedules(schedules);
         global.SETTINGS.schedulesLeave = parseSchedules(schedulesLeave);
         global.SETTINGS.schedulesLate = parseSchedules(schedulesLate);
+        global.SETTINGS.schedulesWeeklyRecap = parseSchedules(schedulesWeeklyRecap);
 
         // Handle Holidays
         // holidays: "2024-02-14, 2024-12-25" -> Array
