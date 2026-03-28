@@ -98,19 +98,100 @@ class StorageService {
     async pingSupabase() {
         if (this.supabase) {
             try {
-                // Lightweight query to keep Supabase project active
-                const { error } = await this.supabase
-                    .from('app_settings')
-                    .select('id')
-                    .limit(1);
+                const now = new Date().toISOString();
+                const pingCount = Math.floor(Math.random() * 100000);
 
-                if (error) {
-                    console.error('[Storage] Supabase keep-alive ping failed:', error.message);
-                } else {
-                    console.log('[Storage] Supabase keep-alive ping successful');
+                // Operation 1: UPSERT keep-alive row (write activity)
+                const { error: upsertError } = await this.supabase
+                    .from('app_settings')
+                    .upsert({ id: 99, config: { keepalive: true, last_ping: now, ping_count: pingCount } });
+
+                if (upsertError) {
+                    console.error('[Storage] Keep-alive UPSERT failed:', upsertError.message);
                 }
+
+                // Operation 2: SELECT to verify (read activity)
+                const { data, error: selectError } = await this.supabase
+                    .from('app_settings')
+                    .select('id, config')
+                    .eq('id', 99)
+                    .single();
+
+                if (selectError) {
+                    console.error('[Storage] Keep-alive SELECT failed:', selectError.message);
+                }
+
+                // Operation 3: INSERT a keep-alive log entry to broadcast_logs (more write activity)
+                const { error: logError } = await this.supabase
+                    .from('broadcast_logs')
+                    .insert({
+                        type: 'keepalive',
+                        targets_count: 0,
+                        status: 'ping',
+                        message: `Keep-alive ping at ${now}`
+                    });
+
+                if (logError) {
+                    // Table might not exist yet, just warn
+                    console.warn('[Storage] Keep-alive log insert failed (table may not exist yet):', logError.message);
+                }
+
+                console.log(`[Storage] Supabase keep-alive ping successful (3 ops at ${now})`);
             } catch (err) {
                 console.error('[Storage] Unexpected Supabase ping error:', err.message);
+            }
+        }
+    }
+
+    /**
+     * Log a broadcast event to Supabase for audit trail + database activity
+     */
+    async logBroadcast(type, targetsCount, status = 'success', message = '') {
+        if (this.supabase) {
+            try {
+                const { error } = await this.supabase
+                    .from('broadcast_logs')
+                    .insert({
+                        type: type,
+                        targets_count: targetsCount,
+                        status: status,
+                        message: message
+                    });
+
+                if (error) {
+                    console.warn('[Storage] Broadcast log insert failed:', error.message);
+                } else {
+                    console.log(`[Storage] Broadcast logged: ${type} -> ${targetsCount} target(s) [${status}]`);
+                }
+            } catch (err) {
+                console.error('[Storage] Unexpected broadcast log error:', err.message);
+            }
+        }
+    }
+
+    /**
+     * Clean up old keep-alive logs (older than 30 days) to prevent table bloat
+     * Only removes 'keepalive' type entries, preserves broadcast logs
+     */
+    async cleanOldLogs() {
+        if (this.supabase) {
+            try {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - 30);
+
+                const { error } = await this.supabase
+                    .from('broadcast_logs')
+                    .delete()
+                    .eq('type', 'keepalive')
+                    .lt('created_at', cutoff.toISOString());
+
+                if (error) {
+                    console.warn('[Storage] Old logs cleanup failed:', error.message);
+                } else {
+                    console.log('[Storage] Old keep-alive logs cleaned up (30+ days)');
+                }
+            } catch (err) {
+                console.error('[Storage] Unexpected cleanup error:', err.message);
             }
         }
     }

@@ -20,12 +20,26 @@ class SchedulerService {
             this.scheduleTasks(settings.schedulesWeeklyRecap, settings, 'weekly_recap');
         }
 
-        // Keep-alive Supabase (runs every day at 00:00)
-        console.log(`[Scheduler] Scheduling Supabase Keep-Alive ping (0 0 * * *)`);
-        this.tasks['supabase_ping'] = cron.schedule('0 0 * * *', async () => {
+        // Keep-alive Supabase (runs every 30 minutes to prevent free tier auto-pause)
+        console.log(`[Scheduler] Scheduling Supabase Keep-Alive ping (*/30 * * * *)`);
+        this.tasks['supabase_ping'] = cron.schedule('*/30 * * * *', async () => {
              console.log('[Scheduler] Running Supabase keep-alive ping');
-             const storage = require('./storage'); // Require dynamically or rely on it being the single instance
+             const storage = require('./storage');
              await storage.pingSupabase();
+        });
+
+        // Run initial ping on startup to immediately register activity
+        setTimeout(async () => {
+            console.log('[Scheduler] Running initial Supabase keep-alive ping on startup');
+            const storage = require('./storage');
+            await storage.pingSupabase();
+        }, 5000);
+
+        // Daily cleanup of old keep-alive logs (run at 03:00 AM Jakarta time)
+        this.tasks['log_cleanup'] = cron.schedule('0 3 * * *', async () => {
+            console.log('[Scheduler] Running daily log cleanup');
+            const storage = require('./storage');
+            await storage.cleanOldLogs();
         });
     }
 
@@ -58,6 +72,7 @@ class SchedulerService {
     }
 
     async runBroadcastRoutine(settings, type = 'general') {
+        const storageService = require('./storage');
         try {
             // Check for Holiday (Skip standard broadcasts, but run weekly recap regardless)
             if (type !== 'weekly_recap' && this.isHoliday(settings)) {
@@ -91,11 +106,15 @@ class SchedulerService {
 
             console.log(`[Scheduler] Sending ${type} broadcast to ${targets.length} target(s)...`);
 
+            let successCount = 0;
+            let failCount = 0;
+
             for (let i = 0; i < targets.length; i++) {
                 const target = targets[i];
                 try {
                     await wahaService.sendText(settings.wahaUrl, settings.sessionId, settings.apiKey, target, report);
                     console.log(`[Scheduler] ${type} broadcast sent to ${target} (${i + 1}/${targets.length})`);
+                    successCount++;
 
                     // Add delay between sends to avoid rate limiting (1.5 seconds)
                     if (i < targets.length - 1) {
@@ -103,13 +122,24 @@ class SchedulerService {
                     }
                 } catch (err) {
                     console.error(`[Scheduler] Failed to send to ${target}:`, err.message);
+                    failCount++;
                     // Continue to next target even if one fails
                 }
             }
 
             console.log(`[Scheduler] ${type} broadcast completed to all targets`);
+
+            // Log broadcast to Supabase (generates DB activity + audit trail)
+            await storageService.logBroadcast(
+                type,
+                targets.length,
+                failCount === 0 ? 'success' : `partial (${successCount}/${targets.length})`,
+                `Broadcast ${type} completed: ${successCount} sent, ${failCount} failed`
+            );
         } catch (error) {
             console.error('[Scheduler] Routine failed:', error.message);
+            // Log failure to Supabase
+            await storageService.logBroadcast(type, 0, 'error', error.message);
         }
     }
 
