@@ -169,6 +169,104 @@ class StorageService {
         }
     }
 
+    // ============================================================
+    // REMINDER CRUD
+    // ============================================================
+
+    async getReminders() {
+        if (!this.supabase) return [];
+        try {
+            const { data, error } = await this.supabase
+                .from('reminders')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (error) { console.error('[Storage] getReminders error:', error.message); return []; }
+            return data || [];
+        } catch (err) {
+            console.error('[Storage] getReminders unexpected error:', err.message);
+            return [];
+        }
+    }
+
+    async saveReminder(reminder) {
+        if (!this.supabase) throw new Error('Supabase not configured');
+        try {
+            const payload = {
+                title: reminder.title,
+                category: reminder.category || 'umum',
+                message: reminder.message,
+                type: reminder.type || 'recurring',
+                cron_expr: reminder.cron_expr || null,
+                send_at: reminder.send_at || null,
+                target: reminder.target,
+                active: reminder.active !== undefined ? reminder.active : true
+            };
+
+            let result;
+            if (reminder.id) {
+                result = await this.supabase
+                    .from('reminders')
+                    .update(payload)
+                    .eq('id', reminder.id)
+                    .select()
+                    .single();
+            } else {
+                result = await this.supabase
+                    .from('reminders')
+                    .insert(payload)
+                    .select()
+                    .single();
+            }
+
+            if (result.error) throw new Error(result.error.message);
+            console.log(`[Storage] Reminder saved: ${payload.title}`);
+            return result.data;
+        } catch (err) {
+            console.error('[Storage] saveReminder error:', err.message);
+            throw err;
+        }
+    }
+
+    async deleteReminder(id) {
+        if (!this.supabase) throw new Error('Supabase not configured');
+        try {
+            const { error } = await this.supabase
+                .from('reminders')
+                .delete()
+                .eq('id', id);
+            if (error) throw new Error(error.message);
+            console.log(`[Storage] Reminder deleted: ${id}`);
+        } catch (err) {
+            console.error('[Storage] deleteReminder error:', err.message);
+            throw err;
+        }
+    }
+
+    async updateReminderLastSent(id) {
+        if (!this.supabase) return;
+        try {
+            await this.supabase
+                .from('reminders')
+                .update({ last_sent_at: new Date().toISOString() })
+                .eq('id', id);
+        } catch (err) {
+            console.error('[Storage] updateReminderLastSent error:', err.message);
+        }
+    }
+
+    async deactivateReminder(id) {
+        if (!this.supabase) return;
+        try {
+            await this.supabase
+                .from('reminders')
+                .update({ active: false, last_sent_at: new Date().toISOString() })
+                .eq('id', id);
+            console.log(`[Storage] One-shot reminder deactivated: ${id}`);
+        } catch (err) {
+            console.error('[Storage] deactivateReminder error:', err.message);
+        }
+    }
+
     /**
      * Clean up old keep-alive logs (older than 30 days) to prevent table bloat
      * Only removes 'keepalive' type entries, preserves broadcast logs

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broadcast Pengingat - Absensi Broadcast</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .sidebar {
+            height: 100vh; position: fixed; top: 0; left: 0;
+            width: 250px; background: #2c3e50; color: white; padding-top: 20px;
+        }
+        .sidebar a {
+            color: #adb5bd; text-decoration: none;
+            display: block; padding: 10px 20px;
+        }
+        .sidebar a:hover, .sidebar a.active {
+            background: #34495e; color: white;
+            border-left: 4px solid #3498db;
+        }
+        .content { margin-left: 250px; padding: 20px; }
+        .card-custom { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .badge-ibadah  { background-color: #198754; }
+        .badge-promosi { background-color: #0d6efd; }
+        .badge-umum    { background-color: #6c757d; }
+        .reminder-card {
+            border: none; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: box-shadow 0.2s;
+        }
+        .reminder-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.13); }
+        .reminder-card.inactive { opacity: 0.55; }
+        .msg-preview {
+            background: #f1f3f5; border-radius: 8px;
+            padding: 8px 12px; font-size: 0.85rem;
+            white-space: pre-wrap; max-height: 80px;
+            overflow: hidden; color: #495057;
+        }
+        .schedule-badge {
+            font-size: 0.78rem; background: #e9ecef;
+            color: #495057; border-radius: 20px;
+            padding: 2px 10px; display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h4 class="text-center mb-4">Absensi App</h4>
+        <a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>"><i class="fas fa-home me-2"></i> Dashboard</a>
+        <a href="/karyawan" class="<%= page === 'karyawan' ? 'active' : '' %>"><i class="fas fa-users me-2"></i> Karyawan</a>
+        <a href="/details" class="<%= page === 'details' ? 'active' : '' %>"><i class="fas fa-list me-2"></i> Data Detail</a>
+        <a href="/input-broadcast" class="<%= page === 'broadcast' ? 'active' : '' %>"><i class="fas fa-bullhorn me-2"></i> Broadcast WA</a>
+        <a href="/pengingat" class="<%= page === 'pengingat' ? 'active' : '' %>"><i class="fas fa-bell me-2"></i> Pengingat</a>
+    </div>
+
+    <div class="content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>📣 Broadcast Pengingat</h2>
+                <p class="text-muted mb-0">Kelola pengingat general — ibadah, promosi, event, dan lainnya.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openModal()">
+                <i class="fas fa-plus me-2"></i> Tambah Pengingat
+            </button>
+        </div>
+
+        <!-- Alert feedback -->
+        <div id="alertBox" class="alert d-none mb-3" role="alert"></div>
+
+        <!-- Reminder Cards -->
+        <div id="reminderList" class="row g-3">
+            <% if (reminders && reminders.length > 0) { %>
+                <% reminders.forEach(function(r) { %>
+                    <div class="col-12" id="card-<%= r.id %>">
+                        <div class="card reminder-card p-3 <%= r.active ? '' : 'inactive' %>">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                        <% if (r.active) { %>
+                                            <span class="badge bg-success"><i class="fas fa-circle me-1" style="font-size:0.6rem"></i> Aktif</span>
+                                        <% } else { %>
+                                            <span class="badge bg-secondary"><i class="fas fa-circle me-1" style="font-size:0.6rem"></i> Nonaktif</span>
+                                        <% } %>
+                                        <span class="badge badge-<%= r.category %>"><%= r.category.charAt(0).toUpperCase() + r.category.slice(1) %></span>
+                                        <strong><%= r.title %></strong>
+                                    </div>
+                                    <div class="msg-preview mb-2"><%= r.message %></div>
+                                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                                        <% if (r.type === 'recurring' && r.cron_expr) { %>
+                                            <span class="schedule-badge"><i class="fas fa-redo me-1"></i> Rutin: <code><%= r.cron_expr %></code></span>
+                                        <% } else if (r.type === 'one_shot' && r.send_at) { %>
+                                            <span class="schedule-badge"><i class="fas fa-clock me-1"></i> Sekali: <%= new Date(r.send_at).toLocaleString('id-ID', {timeZone:'Asia/Jakarta'}) %></span>
+                                        <% } %>
+                                        <span class="schedule-badge"><i class="fab fa-whatsapp me-1 text-success"></i> <%= r.target %></span>
+                                        <% if (r.last_sent_at) { %>
+                                            <span class="schedule-badge text-muted"><i class="fas fa-paper-plane me-1"></i> Terakhir: <%= new Date(r.last_sent_at).toLocaleString('id-ID', {timeZone:'Asia/Jakarta'}) %></span>
+                                        <% } %>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 flex-shrink-0">
+                                    <button class="btn btn-sm btn-outline-info" onclick="testReminder('<%= r.id %>', '<%= r.title %>')" title="Test Kirim Sekarang">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="editReminder(<%= JSON.stringify(r).replace(/</g, '&lt;') %>)" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteReminder('<%= r.id %>', '<%= r.title %>')" title="Hapus">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <% }); %>
+            <% } else { %>
+                <div class="col-12">
+                    <div class="card card-custom p-5 text-center">
+                        <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Belum ada pengingat. Klik <strong>"Tambah Pengingat"</strong> untuk memulai.</p>
+                    </div>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Modal Add/Edit -->
+    <div class="modal fade" id="reminderModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle"><i class="fas fa-bell me-2"></i> Tambah Pengingat</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="reminderId">
+
+                    <div class="row g-3">
+                        <!-- Judul -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Judul Pengingat <span class="text-danger">*</span></label>
+                            <input type="text" id="reminderTitle" class="form-control" placeholder="misal: Sholat Jumat, Live Shopee Kamis">
+                        </div>
+
+                        <!-- Kategori + Template -->
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Kategori</label>
+                            <select id="reminderCategory" class="form-select" onchange="loadTemplates()">
+                                <option value="ibadah">🕌 Ibadah</option>
+                                <option value="promosi">🛒 Promosi</option>
+                                <option value="umum" selected>📋 Umum</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Pilih Template <small class="text-muted">(opsional, bisa diedit)</small></label>
+                            <select id="reminderTemplate" class="form-select" onchange="applyTemplate()">
+                                <option value="">-- Tulis sendiri --</option>
+                            </select>
+                        </div>
+
+                        <!-- Pesan -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Isi Pesan <span class="text-danger">*</span></label>
+                            <textarea id="reminderMessage" class="form-control" rows="5" placeholder="Tulis pesan WhatsApp di sini...&#10;&#10;Gunakan *teks* untuk bold, _teks_ untuk italic."></textarea>
+                            <div class="form-text">Format WhatsApp: *bold*, _italic_, ~coret~</div>
+                        </div>
+
+                        <!-- Target -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Target WA <span class="text-danger">*</span></label>
+                            <input type="text" id="reminderTarget" class="form-control" placeholder="Group ID: 120363xxxxxx@g.us  |  Personal: 628xxxxxxxxxx@s.whatsapp.net">
+                            <div class="form-text">Grup: format <code>xxxxxx@g.us</code> — Personal: format <code>628xxx@s.whatsapp.net</code></div>
+                        </div>
+
+                        <!-- Tipe Jadwal -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Tipe Jadwal</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="scheduleType" id="typeRecurring" value="recurring" checked onchange="toggleScheduleType()">
+                                    <label class="form-check-label" for="typeRecurring"><i class="fas fa-redo me-1"></i> Rutin (berulang)</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="scheduleType" id="typeOneShot" value="one_shot" onchange="toggleScheduleType()">
+                                    <label class="form-check-label" for="typeOneShot"><i class="fas fa-clock me-1"></i> Sekali kirim</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rutin: Cron Builder -->
+                        <div id="recurringSection" class="col-12">
+                            <div class="card bg-light border-0 p-3">
+                                <label class="form-label fw-semibold mb-2">Jadwal Rutin</label>
+                                <div class="row g-2 align-items-end mb-2">
+                                    <div class="col-auto">
+                                        <label class="form-label small">Jam</label>
+                                        <input type="number" id="cronHour" class="form-control form-control-sm" min="0" max="23" value="11" style="width:70px" oninput="buildCron()">
+                                    </div>
+                                    <div class="col-auto">
+                                        <label class="form-label small">Menit</label>
+                                        <input type="number" id="cronMinute" class="form-control form-control-sm" min="0" max="59" value="30" style="width:70px" oninput="buildCron()">
+                                    </div>
+                                </div>
+                                <label class="form-label small fw-semibold">Hari</label>
+                                <div class="d-flex flex-wrap gap-2 mb-2" id="dayCheckboxes">
+                                    <% [['0','Min'],['1','Sen'],['2','Sel'],['3','Rab'],['4','Kam'],['5','Jum'],['6','Sab']].forEach(function(d){ %>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" id="day<%= d[0] %>" value="<%= d[0] %>" onchange="buildCron()">
+                                            <label class="form-check-label" for="day<%= d[0] %>"><%= d[1] %></label>
+                                        </div>
+                                    <% }); %>
+                                </div>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Cron</span>
+                                    <input type="text" id="cronExpr" class="form-control font-monospace" placeholder="30 11 * * 5" oninput="syncCronToUI()">
+                                    <span class="input-group-text text-muted" id="cronHint">—</span>
+                                </div>
+                                <div class="form-text">Contoh: <code>30 11 * * 5</code> = Tiap Jumat jam 11:30</div>
+                            </div>
+                        </div>
+
+                        <!-- One-shot: datetime -->
+                        <div id="oneshotSection" class="col-12 d-none">
+                            <div class="card bg-light border-0 p-3">
+                                <label class="form-label fw-semibold">Tanggal & Waktu Kirim</label>
+                                <input type="datetime-local" id="sendAt" class="form-control">
+                                <div class="form-text">Setelah terkirim, pengingat akan otomatis dinonaktifkan.</div>
+                            </div>
+                        </div>
+
+                        <!-- Status Aktif -->
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="reminderActive" checked>
+                                <label class="form-check-label" for="reminderActive">Aktifkan pengingat ini</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" onclick="saveReminder()">
+                        <i class="fas fa-save me-2"></i> Simpan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // =============================================
+    // Template Suggestions per Kategori
+    // =============================================
+    const TEMPLATES = {
+        ibadah: [
+            { label: 'Sholat Jumat', text: '🕌 *Assalamualaikum Warahmatullahi Wabarakatuh*\n\nPengingat sholat Jumat untuk seluruh karyawan muslim 🙏\n\nJangan lupa bersiap dan berangkat tepat waktu ya! Barakallahu fiikum.' },
+            { label: 'Ibadah Gereja', text: '⛪ *Selamat Hari Minggu!*\n\nPengingat ibadah gereja untuk rekan-rekan Kristiani 🙏\n\nSelamat beribadah, Tuhan memberkati!' },
+            { label: 'Pengajian Rutin', text: '📿 *Pengingat Pengajian Rutin*\n\nPengajian rutin akan segera dimulai. Harap hadir tepat waktu 🙏\n\nBarakallahu fiikum.' },
+        ],
+        promosi: [
+            { label: 'Live Shopee', text: '🛒 *LIVE SHOPEE ALERT!* 🔴\n\nTim Digital Marketing kami akan LIVE di Shopee sebentar lagi!\n\n📦 Banyak promo & diskon menarik!\n👉 Yuk mampir, tonton, dan support kami ya! 🙌\n\n#LiveShopee #GamaAgroSejati' },
+            { label: 'Flash Sale', text: '⚡ *FLASH SALE!* ⚡\n\nJangan lewatkan penawaran terbatas dari kami!\n\n🔥 Diskon spesial hanya hari ini\n⏰ Segera manfaatkan sebelum kehabisan!\n\n#FlashSale #GamaAgroSejati' },
+            { label: 'Live TikTok', text: '🎵 *LIVE TIKTOK SEKARANG!* 🔴\n\nTim kami sedang LIVE di TikTok!\n\n🎁 Ada giveaway & promo eksklusif\n👉 Langsung join sekarang ya! 🙌' },
+        ],
+        umum: [
+            { label: 'Pengingat Meeting', text: '📢 *Pengingat Meeting*\n\nMeeting akan segera dimulai. Harap hadir tepat waktu di tempat yang sudah ditentukan.\n\nTerima kasih 🙏' },
+            { label: 'Info Perusahaan', text: '📋 *Informasi Penting*\n\nKepada seluruh karyawan,\n\n[Tulis informasi di sini]\n\nTerima kasih atas perhatiannya.\n\n_Manajemen GAS_' },
+            { label: 'Selamat Hari Besar', text: '🎉 *Selamat Hari Raya!*\n\nManajemen dan seluruh keluarga besar Gama Agro Sejati mengucapkan selamat merayakan hari raya.\n\nMohon maaf lahir dan batin 🙏' },
+        ]
+    };
+
+    const CRON_DAY_NAMES = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+
+    const modal = new bootstrap.Modal(document.getElementById('reminderModal'));
+
+    function openModal(data = null) {
+        document.getElementById('modalTitle').innerHTML = data
+            ? '<i class="fas fa-edit me-2"></i> Edit Pengingat'
+            : '<i class="fas fa-plus me-2"></i> Tambah Pengingat';
+        document.getElementById('reminderId').value = data?.id || '';
+        document.getElementById('reminderTitle').value = data?.title || '';
+        document.getElementById('reminderMessage').value = data?.message || '';
+        document.getElementById('reminderTarget').value = data?.target || '';
+        document.getElementById('reminderActive').checked = data ? data.active : true;
+        document.getElementById('reminderCategory').value = data?.category || 'umum';
+
+        // Schedule type
+        const type = data?.type || 'recurring';
+        document.querySelector(`input[name="scheduleType"][value="${type}"]`).checked = true;
+        toggleScheduleType();
+
+        if (type === 'recurring') {
+            const expr = data?.cron_expr || '30 11 * * 5';
+            document.getElementById('cronExpr').value = expr;
+            syncCronToUI();
+        } else if (data?.send_at) {
+            // Convert to local datetime-local format
+            const dt = new Date(data.send_at);
+            const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('sendAt').value = local;
+        } else {
+            document.getElementById('sendAt').value = '';
+        }
+
+        loadTemplates();
+        modal.show();
+    }
+
+    function editReminder(data) { openModal(data); }
+
+    function loadTemplates() {
+        const cat = document.getElementById('reminderCategory').value;
+        const sel = document.getElementById('reminderTemplate');
+        sel.innerHTML = '<option value="">-- Tulis sendiri --</option>';
+        (TEMPLATES[cat] || []).forEach((t, i) => {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = t.label;
+            sel.appendChild(opt);
+        });
+        sel.value = '';
+    }
+
+    function applyTemplate() {
+        const cat = document.getElementById('reminderCategory').value;
+        const idx = document.getElementById('reminderTemplate').value;
+        if (idx === '') return;
+        const tpl = TEMPLATES[cat]?.[parseInt(idx)];
+        if (tpl) document.getElementById('reminderMessage').value = tpl.text;
+    }
+
+    function toggleScheduleType() {
+        const type = document.querySelector('input[name="scheduleType"]:checked').value;
+        document.getElementById('recurringSection').classList.toggle('d-none', type !== 'recurring');
+        document.getElementById('oneshotSection').classList.toggle('d-none', type !== 'one_shot');
+    }
+
+    // Cron builder helpers
+    function buildCron() {
+        const h = document.getElementById('cronHour').value || '0';
+        const m = document.getElementById('cronMinute').value || '0';
+        const days = [...document.querySelectorAll('#dayCheckboxes input:checked')].map(c => c.value);
+        const dayPart = days.length === 0 || days.length === 7 ? '*' : days.join(',');
+        const expr = `${m} ${h} * * ${dayPart}`;
+        document.getElementById('cronExpr').value = expr;
+        updateCronHint(expr);
+    }
+
+    function syncCronToUI() {
+        const expr = document.getElementById('cronExpr').value.trim();
+        const parts = expr.split(/\s+/);
+        if (parts.length === 5) {
+            document.getElementById('cronMinute').value = parts[0] === '*' ? 0 : parts[0];
+            document.getElementById('cronHour').value = parts[1] === '*' ? 0 : parts[1];
+            // Days
+            document.querySelectorAll('#dayCheckboxes input').forEach(cb => cb.checked = false);
+            if (parts[4] !== '*') {
+                parts[4].split(',').forEach(d => {
+                    const cb = document.getElementById(`day${d}`);
+                    if (cb) cb.checked = true;
+                });
+            }
+        }
+        updateCronHint(expr);
+    }
+
+    function updateCronHint(expr) {
+        const parts = expr.split(/\s+/);
+        let hint = '—';
+        if (parts.length === 5) {
+            const m = parts[0], h = parts[1], dayPart = parts[4];
+            const time = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+            if (dayPart === '*') hint = `Setiap hari jam ${time}`;
+            else {
+                const dayNames = dayPart.split(',').map(d => CRON_DAY_NAMES[parseInt(d)] || d).join(', ');
+                hint = `Tiap ${dayNames} jam ${time}`;
+            }
+        }
+        document.getElementById('cronHint').textContent = hint;
+    }
+
+    // =============================================
+    // Save Reminder
+    // =============================================
+    async function saveReminder() {
+        const id = document.getElementById('reminderId').value;
+        const title = document.getElementById('reminderTitle').value.trim();
+        const message = document.getElementById('reminderMessage').value.trim();
+        const target = document.getElementById('reminderTarget').value.trim();
+        const category = document.getElementById('reminderCategory').value;
+        const type = document.querySelector('input[name="scheduleType"]:checked').value;
+        const active = document.getElementById('reminderActive').checked;
+
+        if (!title || !message || !target) {
+            showAlert('Judul, pesan, dan target WA wajib diisi!', 'danger');
+            return;
+        }
+
+        const payload = { title, message, target, category, type, active };
+        if (id) payload.id = id;
+
+        if (type === 'recurring') {
+            const expr = document.getElementById('cronExpr').value.trim();
+            if (!expr) { showAlert('Cron expression tidak boleh kosong!', 'danger'); return; }
+            payload.cron_expr = expr;
+        } else {
+            const sendAt = document.getElementById('sendAt').value;
+            if (!sendAt) { showAlert('Tanggal & waktu kirim wajib diisi!', 'danger'); return; }
+            payload.send_at = new Date(sendAt).toISOString();
+        }
+
+        const btn = document.querySelector('.modal-footer .btn-primary');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Menyimpan...';
+
+        try {
+            const res = await fetch('/api/reminders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            if (result.success) {
+                modal.hide();
+                showAlert('Pengingat berhasil disimpan! ✅', 'success');
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                showAlert('Gagal: ' + result.message, 'danger');
+            }
+        } catch (e) {
+            showAlert('Error: ' + e.message, 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save me-2"></i> Simpan';
+        }
+    }
+
+    // =============================================
+    // Delete Reminder
+    // =============================================
+    async function deleteReminder(id, title) {
+        if (!confirm(`Hapus pengingat "${title}"?`)) return;
+        try {
+            const res = await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
+            const result = await res.json();
+            if (result.success) {
+                document.getElementById(`card-${id}`)?.remove();
+                showAlert('Pengingat berhasil dihapus.', 'success');
+            } else {
+                showAlert('Gagal hapus: ' + result.message, 'danger');
+            }
+        } catch (e) {
+            showAlert('Error: ' + e.message, 'danger');
+        }
+    }
+
+    // =============================================
+    // Test Send Reminder
+    // =============================================
+    async function testReminder(id, title) {
+        if (!confirm(`Kirim test pesan "${title}" sekarang ke target-nya?`)) return;
+        try {
+            const res = await fetch(`/api/reminders/${id}/test`, { method: 'POST' });
+            const result = await res.json();
+            if (result.success) {
+                showAlert('✅ ' + result.message, 'success');
+            } else {
+                showAlert('❌ ' + result.message, 'danger');
+            }
+        } catch (e) {
+            showAlert('Error: ' + e.message, 'danger');
+        }
+    }
+
+    // =============================================
+    // Utility
+    // =============================================
+    function showAlert(msg, type = 'success') {
+        const box = document.getElementById('alertBox');
+        box.className = `alert alert-${type}`;
+        box.textContent = msg;
+        box.classList.remove('d-none');
+        setTimeout(() => box.classList.add('d-none'), 4000);
+    }
+
+    // Init cron hint on load
+    document.addEventListener('DOMContentLoaded', () => {
+        buildCron();
+        loadTemplates();
+    });
+    </script>
+</body>
+</html>

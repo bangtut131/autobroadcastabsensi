@@ -8,6 +8,86 @@ class SchedulerService {
     }
 
     // Initialize tasks based on settings
+    // ============================================================
+    // REMINDER SCHEDULING
+    // ============================================================
+
+    async initReminders() {
+        // Cancel all existing reminder tasks
+        Object.keys(this.tasks).forEach(key => {
+            if (key.startsWith('reminder_')) {
+                this.tasks[key].stop ? this.tasks[key].stop() : clearTimeout(this.tasks[key]);
+                delete this.tasks[key];
+            }
+        });
+
+        const storage = require('./storage');
+        const reminders = await storage.getReminders();
+        const active = reminders.filter(r => r.active);
+        console.log(`[Scheduler] Loading ${active.length} active reminder(s)`);
+
+        for (const reminder of active) {
+            this.scheduleReminder(reminder);
+        }
+    }
+
+    scheduleReminder(reminder) {
+        const taskId = `reminder_${reminder.id}`;
+
+        if (reminder.type === 'recurring' && reminder.cron_expr) {
+            if (!require('node-cron').validate(reminder.cron_expr)) {
+                console.warn(`[Scheduler] Invalid cron for reminder "${reminder.title}": ${reminder.cron_expr}`);
+                return;
+            }
+            console.log(`[Scheduler] Scheduling recurring reminder "${reminder.title}" → ${reminder.cron_expr}`);
+            this.tasks[taskId] = require('node-cron').schedule(reminder.cron_expr, async () => {
+                await this.sendReminder(reminder);
+            });
+
+        } else if (reminder.type === 'one_shot' && reminder.send_at) {
+            const sendTime = new Date(reminder.send_at).getTime();
+            const now = Date.now();
+            const delay = sendTime - now;
+
+            if (delay <= 0) {
+                console.warn(`[Scheduler] One-shot reminder "${reminder.title}" send_at is in the past, skipping`);
+                return;
+            }
+
+            console.log(`[Scheduler] Scheduling one-shot reminder "${reminder.title}" in ${Math.round(delay / 60000)} min`);
+            this.tasks[taskId] = setTimeout(async () => {
+                await this.sendReminder(reminder);
+                // Deactivate after sending
+                const storage = require('./storage');
+                await storage.deactivateReminder(reminder.id);
+                delete this.tasks[taskId];
+            }, delay);
+        }
+    }
+
+    async sendReminder(reminder) {
+        try {
+            console.log(`[Scheduler] Sending reminder: "${reminder.title}" → ${reminder.target}`);
+            const settings = global.SETTINGS;
+            await wahaService.sendText(
+                settings.wahaUrl,
+                settings.sessionId,
+                settings.apiKey,
+                reminder.target,
+                reminder.message
+            );
+            const storage = require('./storage');
+            await storage.updateReminderLastSent(reminder.id);
+            console.log(`[Scheduler] Reminder sent: "${reminder.title}"`);
+        } catch (err) {
+            console.error(`[Scheduler] Failed to send reminder "${reminder.title}":`, err.message);
+        }
+    }
+
+    async reloadReminders() {
+        await this.initReminders();
+    }
+
     init(settings) {
         console.log(`[Scheduler] Initializing. Server Time: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`);
         console.log(`[Scheduler] AutoBroadcast Enabled: ${settings.autoBroadcast}`);

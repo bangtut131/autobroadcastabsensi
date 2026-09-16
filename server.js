@@ -43,6 +43,9 @@ const employeeService = require('./services/employee');
     global.SETTINGS = await storageService.loadSettings();
     schedulerService.init(global.SETTINGS);
 
+    // Load & schedule reminders from Supabase
+    await schedulerService.initReminders();
+
     // Global Cache for Employee Data
     global.EMPLOYEE_CACHE = null;
 
@@ -254,6 +257,53 @@ const employeeService = require('./services/employee');
 
         schedulerService.init(global.SETTINGS);
         res.json({ success: true, message: 'Settings saved', settings: global.SETTINGS });
+    });
+
+    // --- PENGINGAT ROUTES ---
+    app.get('/pengingat', requireAuth, async (req, res) => {
+        const reminders = await storageService.getReminders();
+        res.render('pengingat', { page: 'pengingat', reminders });
+    });
+
+    app.get('/api/reminders', requireAuth, async (req, res) => {
+        try {
+            const reminders = await storageService.getReminders();
+            res.json({ success: true, data: reminders });
+        } catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    });
+
+    app.post('/api/reminders', requireAuth, async (req, res) => {
+        try {
+            const saved = await storageService.saveReminder(req.body);
+            await schedulerService.reloadReminders();
+            res.json({ success: true, data: saved });
+        } catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    });
+
+    app.delete('/api/reminders/:id', requireAuth, async (req, res) => {
+        try {
+            await storageService.deleteReminder(req.params.id);
+            await schedulerService.reloadReminders();
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    });
+
+    app.post('/api/reminders/:id/test', requireAuth, async (req, res) => {
+        try {
+            const reminders = await storageService.getReminders();
+            const reminder = reminders.find(r => r.id === req.params.id);
+            if (!reminder) return res.status(404).json({ success: false, message: 'Reminder tidak ditemukan' });
+            await schedulerService.sendReminder(reminder);
+            res.json({ success: true, message: 'Test pesan berhasil dikirim' });
+        } catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
     });
 
     app.listen(PORT, () => {
