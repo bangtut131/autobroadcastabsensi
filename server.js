@@ -259,6 +259,56 @@ const employeeService = require('./services/employee');
         res.json({ success: true, message: 'Settings saved', settings: global.SETTINGS });
     });
 
+    // --- GRAFIK ROUTES ---
+    app.get('/grafik', requireAuth, async (req, res) => {
+        let recap = [];
+        try { recap = await attendanceService.getMonthlyRecap(); } catch(e) { recap = []; }
+        res.render('grafik', {
+            page: 'grafik',
+            data: global.ATTENDANCE_CACHE,
+            recap
+        });
+    });
+
+    // --- EXPORT EXCEL ---
+    app.get('/api/export/absensi', requireAuth, (req, res) => {
+        const XLSX = require('xlsx');
+        const data = global.ATTENDANCE_CACHE;
+        if (!data || !data.results || data.results.length === 0) {
+            return res.status(400).json({ success: false, message: 'Belum ada data. Refresh data absensi dulu.' });
+        }
+
+        const rows = data.results.map((item, i) => ({
+            'No': i + 1,
+            'NIK': item.nik || '-',
+            'Nama Karyawan': item.nama || '-',
+            'Jabatan': item.posisi || '-',
+            'Departemen': item.departemen || '-',
+            'Jam Masuk': item.jamMasuk || '-',
+            'Jam Keluar': item.jamKeluar || '-',
+            'Status': item.status || '-',
+            'Terlambat (menit)': item.menitTerlambat || 0,
+            'Keterangan': item.keterangan && item.keterangan !== '-' ? item.keterangan : '-',
+            'Tanggal': data.timestamp || '-'
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        // Auto column width
+        const colWidths = Object.keys(rows[0]).map(key => ({ wch: Math.max(key.length, 15) }));
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
+
+        const today = new Date().toISOString().split('T')[0];
+        const filename = `absensi_${today}.xlsx`;
+        const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buf);
+    });
+
     // --- PENGINGAT ROUTES ---
     app.get('/pengingat', requireAuth, async (req, res) => {
         const reminders = await storageService.getReminders();

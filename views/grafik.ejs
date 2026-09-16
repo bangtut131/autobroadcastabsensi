@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grafik Absensi - Absensi Broadcast</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .sidebar {
+            height: 100vh; position: fixed; top: 0; left: 0;
+            width: 250px; background: #2c3e50; color: white; padding-top: 20px;
+        }
+        .sidebar a { color: #adb5bd; text-decoration: none; display: block; padding: 10px 20px; }
+        .sidebar a:hover, .sidebar a.active { background: #34495e; color: white; border-left: 4px solid #3498db; }
+        .content { margin-left: 250px; padding: 20px; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .stat-card { border: none; border-radius: 12px; padding: 20px; color: white; }
+        .chart-container { position: relative; height: 300px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h4 class="text-center mb-4">Absensi App</h4>
+        <a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>"><i class="fas fa-home me-2"></i> Dashboard</a>
+        <a href="/karyawan" class="<%= page === 'karyawan' ? 'active' : '' %>"><i class="fas fa-users me-2"></i> Karyawan</a>
+        <a href="/details" class="<%= page === 'details' ? 'active' : '' %>"><i class="fas fa-list me-2"></i> Data Detail</a>
+        <a href="/input-broadcast" class="<%= page === 'broadcast' ? 'active' : '' %>"><i class="fas fa-bullhorn me-2"></i> Broadcast WA</a>
+        <a href="/pengingat" class="<%= page === 'pengingat' ? 'active' : '' %>"><i class="fas fa-bell me-2"></i> Pengingat</a>
+        <a href="/grafik" class="<%= page === 'grafik' ? 'active' : '' %>"><i class="fas fa-chart-bar me-2"></i> Grafik</a>
+    </div>
+
+    <div class="content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>📈 Grafik Absensi</h2>
+                <% if (data && data.timestamp) { %>
+                    <p class="text-muted mb-0"><i class="fas fa-clock me-1"></i> Data: <%= data.timestamp %></p>
+                <% } else { %>
+                    <p class="text-muted mb-0">Belum ada data — klik Refresh untuk memuat.</p>
+                <% } %>
+            </div>
+            <button id="refreshBtn" class="btn btn-primary">
+                <i class="fas fa-sync-alt me-2"></i> Refresh Data
+            </button>
+        </div>
+
+        <% if (data && data.results && data.results.length > 0) { %>
+
+        <!-- Stat Cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg,#27ae60,#2ecc71)">
+                    <div class="fs-2 fw-bold"><%= data.results.filter(r => r.status === 'Hadir').length %></div>
+                    <div>✅ Hadir</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg,#e67e22,#f39c12)">
+                    <div class="fs-2 fw-bold"><%= data.results.filter(r => r.menitTerlambat > 0).length %></div>
+                    <div>⏰ Terlambat</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg,#e74c3c,#c0392b)">
+                    <% var alphaKw = ['alpha','alpa','mangkir','bolos','tanpa keterangan']; %>
+                    <div class="fs-2 fw-bold"><%= data.results.filter(r => alphaKw.some(k => (r.status||'').toLowerCase().includes(k))).length %></div>
+                    <div>❌ Alpha</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg,#3498db,#2980b9)">
+                    <div class="fs-2 fw-bold"><%= data.results.filter(r => ['izin','cuti','sakit','leave'].some(k => (r.status||'').toLowerCase().includes(k))).length %></div>
+                    <div>📋 Izin/Cuti</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="row g-4 mb-4">
+            <!-- Pie Chart: Status Distribution -->
+            <div class="col-md-5">
+                <div class="card card-custom p-4">
+                    <h6 class="fw-bold mb-3"><i class="fas fa-chart-pie me-2 text-primary"></i>Distribusi Status Hari Ini</h6>
+                    <div class="chart-container">
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bar Chart: Top 10 Terlambat -->
+            <div class="col-md-7">
+                <div class="card card-custom p-4">
+                    <h6 class="fw-bold mb-3"><i class="fas fa-chart-bar me-2 text-warning"></i>Top Karyawan Terlambat Hari Ini (menit)</h6>
+                    <div class="chart-container">
+                        <canvas id="lateBarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <% if (recap && recap.length > 0) { %>
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <div class="card card-custom p-4">
+                    <h6 class="fw-bold mb-3"><i class="fas fa-calendar-alt me-2 text-danger"></i>Rekap Keterlambatan Bulan Ini (Top 10, dalam menit)</h6>
+                    <div class="chart-container" style="height:350px">
+                        <canvas id="recapChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <% } %>
+
+        <% } else { %>
+        <div class="card card-custom p-5 text-center">
+            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+            <p class="text-muted">Belum ada data absensi. Klik <strong>"Refresh Data"</strong> untuk memuat grafik.</p>
+            <button onclick="document.getElementById('refreshBtn').click()" class="btn btn-primary mx-auto" style="width:fit-content">
+                <i class="fas fa-sync-alt me-2"></i> Refresh Data
+            </button>
+        </div>
+        <% } %>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    <% if (data && data.results && data.results.length > 0) { %>
+
+    const results = <%- JSON.stringify(data.results) %>;
+    const alphaKw = ['alpha','alpa','mangkir','bolos','tanpa keterangan'];
+
+    // ── PIE CHART: Status Distribution ──
+    const statusCount = { Hadir: 0, Terlambat: 0, Alpha: 0, IzinCuti: 0, Lainnya: 0 };
+    results.forEach(r => {
+        const st = (r.status || '').toLowerCase();
+        if (alphaKw.some(k => st.includes(k))) { statusCount.Alpha++; }
+        else if (['izin','cuti','sakit','leave'].some(k => st.includes(k))) { statusCount.IzinCuti++; }
+        else if (r.menitTerlambat > 0) { statusCount.Terlambat++; }
+        else if (r.status === 'Hadir') { statusCount.Hadir++; }
+        else { statusCount.Lainnya++; }
+    });
+
+    new Chart(document.getElementById('pieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Hadir Tepat Waktu', 'Hadir Terlambat', 'Alpha', 'Izin/Cuti/Sakit', 'Lainnya'],
+            datasets: [{
+                data: [statusCount.Hadir, statusCount.Terlambat, statusCount.Alpha, statusCount.IzinCuti, statusCount.Lainnya],
+                backgroundColor: ['#27ae60','#f39c12','#e74c3c','#3498db','#95a5a6'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+        }
+    });
+
+    // ── BAR CHART: Top 10 Terlambat Hari Ini ──
+    const lateToday = results
+        .filter(r => r.menitTerlambat > 0)
+        .sort((a,b) => b.menitTerlambat - a.menitTerlambat)
+        .slice(0, 10);
+
+    if (lateToday.length > 0) {
+        new Chart(document.getElementById('lateBarChart'), {
+            type: 'bar',
+            data: {
+                labels: lateToday.map(r => r.nama.split(' ').slice(0,2).join(' ')),
+                datasets: [{
+                    label: 'Menit Terlambat',
+                    data: lateToday.map(r => r.menitTerlambat),
+                    backgroundColor: 'rgba(243,156,18,0.8)',
+                    borderColor: '#e67e22',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true, title: { display: true, text: 'Menit' } } }
+            }
+        });
+    } else {
+        document.getElementById('lateBarChart').parentElement.innerHTML =
+            '<div class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fa-2x mb-2 d-block"></i>Tidak ada karyawan terlambat hari ini 🎉</div>';
+    }
+
+    // ── BAR CHART: Rekap Bulan Ini ──
+    <% if (recap && recap.length > 0) { %>
+    const recap = <%- JSON.stringify(recap.slice(0,10)) %>;
+    new Chart(document.getElementById('recapChart'), {
+        type: 'bar',
+        data: {
+            labels: recap.map(r => r.nama.split(' ').slice(0,2).join(' ')),
+            datasets: [
+                {
+                    label: 'Total Terlambat (menit)',
+                    data: recap.map(r => r.totalLateMinutes),
+                    backgroundColor: 'rgba(231,76,60,0.75)',
+                    borderColor: '#c0392b',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Hari Alpha',
+                    data: recap.map(r => r.totalAlphaDays),
+                    backgroundColor: 'rgba(52,152,219,0.75)',
+                    borderColor: '#2980b9',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Menit' } },
+                y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Hari' } }
+            }
+        }
+    });
+    <% } %>
+
+    <% } %>
+
+    // ── REFRESH BUTTON ──
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('refreshBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Memuat...';
+        try {
+            const res = await fetch('/api/run-check', { method: 'POST' });
+            const result = await res.json();
+            if (result.success) { location.reload(); }
+            else { alert('Error: ' + result.message); }
+        } catch(e) { alert('Gagal konek ke server'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Refresh Data'; }
+    });
+    </script>
+</body>
+</html>
