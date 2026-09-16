@@ -170,28 +170,45 @@ class StorageService {
     }
 
     // ============================================================
-    // REMINDER CRUD
+    // REMINDER CRUD — stored in app_settings id=2 as JSON array
+    // Avoids needing a separate table (schema cache issues)
     // ============================================================
 
     async getReminders() {
         if (!this.supabase) return [];
         try {
             const { data, error } = await this.supabase
-                .from('absensi_reminders')
-                .select('*')
-                .order('created_at', { ascending: false });
-            if (error) { console.error('[Storage] getReminders error:', error.message); return []; }
-            return data || [];
+                .from('app_settings')
+                .select('config')
+                .eq('id', 2)
+                .single();
+            if (error && error.code !== 'PGRST116') {
+                console.error('[Storage] getReminders error:', error.message);
+                return [];
+            }
+            return (data && data.config && Array.isArray(data.config.reminders))
+                ? data.config.reminders
+                : [];
         } catch (err) {
             console.error('[Storage] getReminders unexpected error:', err.message);
             return [];
         }
     }
 
+    async _saveAllReminders(reminders) {
+        const { error } = await this.supabase
+            .from('app_settings')
+            .upsert({ id: 2, config: { reminders } });
+        if (error) throw new Error(error.message);
+    }
+
     async saveReminder(reminder) {
         if (!this.supabase) throw new Error('Supabase not configured');
         try {
+            const all = await this.getReminders();
+
             const payload = {
+                id: reminder.id || ('r_' + Date.now()),
                 title: reminder.title,
                 category: reminder.category || 'umum',
                 message: reminder.message,
@@ -199,28 +216,22 @@ class StorageService {
                 cron_expr: reminder.cron_expr || null,
                 send_at: reminder.send_at || null,
                 target: reminder.target,
-                active: reminder.active !== undefined ? reminder.active : true
+                active: reminder.active !== undefined ? reminder.active : true,
+                last_sent_at: reminder.last_sent_at || null,
+                created_at: reminder.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString()
             };
 
-            let result;
-            if (reminder.id) {
-                result = await this.supabase
-                    .from('absensi_reminders')
-                    .update(payload)
-                    .eq('id', reminder.id)
-                    .select()
-                    .single();
+            const idx = all.findIndex(r => r.id === payload.id);
+            if (idx >= 0) {
+                all[idx] = payload; // update
             } else {
-                result = await this.supabase
-                    .from('absensi_reminders')
-                    .insert(payload)
-                    .select()
-                    .single();
+                all.unshift(payload); // insert at top
             }
 
-            if (result.error) throw new Error(result.error.message);
+            await this._saveAllReminders(all);
             console.log(`[Storage] Reminder saved: ${payload.title}`);
-            return result.data;
+            return payload;
         } catch (err) {
             console.error('[Storage] saveReminder error:', err.message);
             throw err;
@@ -230,11 +241,9 @@ class StorageService {
     async deleteReminder(id) {
         if (!this.supabase) throw new Error('Supabase not configured');
         try {
-            const { error } = await this.supabase
-                .from('absensi_reminders')
-                .delete()
-                .eq('id', id);
-            if (error) throw new Error(error.message);
+            const all = await this.getReminders();
+            const filtered = all.filter(r => r.id !== id);
+            await this._saveAllReminders(filtered);
             console.log(`[Storage] Reminder deleted: ${id}`);
         } catch (err) {
             console.error('[Storage] deleteReminder error:', err.message);
@@ -245,10 +254,12 @@ class StorageService {
     async updateReminderLastSent(id) {
         if (!this.supabase) return;
         try {
-            await this.supabase
-                .from('absensi_reminders')
-                .update({ last_sent_at: new Date().toISOString() })
-                .eq('id', id);
+            const all = await this.getReminders();
+            const idx = all.findIndex(r => r.id === id);
+            if (idx >= 0) {
+                all[idx].last_sent_at = new Date().toISOString();
+                await this._saveAllReminders(all);
+            }
         } catch (err) {
             console.error('[Storage] updateReminderLastSent error:', err.message);
         }
@@ -257,10 +268,13 @@ class StorageService {
     async deactivateReminder(id) {
         if (!this.supabase) return;
         try {
-            await this.supabase
-                .from('absensi_reminders')
-                .update({ active: false, last_sent_at: new Date().toISOString() })
-                .eq('id', id);
+            const all = await this.getReminders();
+            const idx = all.findIndex(r => r.id === id);
+            if (idx >= 0) {
+                all[idx].active = false;
+                all[idx].last_sent_at = new Date().toISOString();
+                await this._saveAllReminders(all);
+            }
             console.log(`[Storage] One-shot reminder deactivated: ${id}`);
         } catch (err) {
             console.error('[Storage] deactivateReminder error:', err.message);
