@@ -1,9 +1,11 @@
 -- =============================================================
--- Supabase SQL: Create reminders table for general broadcast reminders
+-- Supabase SQL: Create absensi_reminders table
+-- Prefix "absensi_" dipakai supaya tidak konflik dengan tabel
+-- dari aplikasi lain yang share database Supabase yang sama.
 -- Run this in Supabase SQL Editor
 -- =============================================================
 
-CREATE TABLE IF NOT EXISTS reminders (
+CREATE TABLE IF NOT EXISTS absensi_reminders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'umum',
@@ -19,7 +21,7 @@ CREATE TABLE IF NOT EXISTS reminders (
 );
 
 -- Trigger auto-update updated_at
-CREATE OR REPLACE FUNCTION update_reminders_updated_at()
+CREATE OR REPLACE FUNCTION update_absensi_reminders_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -27,8 +29,8 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-DROP TRIGGER IF EXISTS update_reminders_updated_at ON reminders;
-CREATE TRIGGER update_reminders_updated_at
-    BEFORE UPDATE ON reminders
+DROP TRIGGER IF EXISTS update_absensi_reminders_updated_at ON absensi_reminders;
+CREATE TRIGGER update_absensi_reminders_updated_at
+    BEFORE UPDATE ON absensi_reminders
     FOR EACH ROW
-    EXECUTE FUNCTION update_reminders_updated_at();
+    EXECUTE FUNCTION update_absensi_reminders_updated_at();

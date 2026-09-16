@@ -177,7 +177,7 @@ class StorageService {
         if (!this.supabase) return [];
         try {
             const { data, error } = await this.supabase
-                .from('reminders')
+                .from('absensi_reminders')
                 .select('*')
                 .order('created_at', { ascending: false });
             if (error) { console.error('[Storage] getReminders error:', error.message); return []; }
@@ -205,14 +205,14 @@ class StorageService {
             let result;
             if (reminder.id) {
                 result = await this.supabase
-                    .from('reminders')
+                    .from('absensi_reminders')
                     .update(payload)
                     .eq('id', reminder.id)
                     .select()
                     .single();
             } else {
                 result = await this.supabase
-                    .from('reminders')
+                    .from('absensi_reminders')
                     .insert(payload)
                     .select()
                     .single();
@@ -231,7 +231,7 @@ class StorageService {
         if (!this.supabase) throw new Error('Supabase not configured');
         try {
             const { error } = await this.supabase
-                .from('reminders')
+                .from('absensi_reminders')
                 .delete()
                 .eq('id', id);
             if (error) throw new Error(error.message);
@@ -246,7 +246,7 @@ class StorageService {
         if (!this.supabase) return;
         try {
             await this.supabase
-                .from('reminders')
+                .from('absensi_reminders')
                 .update({ last_sent_at: new Date().toISOString() })
                 .eq('id', id);
         } catch (err) {
@@ -258,7 +258,7 @@ class StorageService {
         if (!this.supabase) return;
         try {
             await this.supabase
-                .from('reminders')
+                .from('absensi_reminders')
                 .update({ active: false, last_sent_at: new Date().toISOString() })
                 .eq('id', id);
             console.log(`[Storage] One-shot reminder deactivated: ${id}`);
